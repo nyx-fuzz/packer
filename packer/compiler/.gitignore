@@ -1,0 +1,7 @@
+
+*.so
+*.o
+afl-clang-fast
+afl-clang-fast++
+afl-clang-fast-firefox
+afl-clang-fast-firefox++

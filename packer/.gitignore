@@ -1,0 +1,4 @@
+*.pyc
+linux_x86_64-userspace/bin64/*
+linux_x86_64-userspace/bin32/*
+nyx.ini
