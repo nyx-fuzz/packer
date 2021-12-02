@@ -81,6 +81,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #define HYPERCALL_KAFL_DUMP_FILE 37
 
 #define HYPERCALL_KAFL_REQ_STREAM_DATA_BULK 38
+#define HYPERCALL_KAFL_PERSIST_PAGE_PAST_SNAPSHOT 39
 
 /* hypertrash only hypercalls */
 #define HYPERTRASH_HYPERCALL_MASK			0xAA000000
