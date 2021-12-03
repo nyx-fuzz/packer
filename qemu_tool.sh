@@ -80,7 +80,7 @@ then
     error_install
   fi
 
-  NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -cdrom $3 -k de -vnc :0 -m $MEMORY_SIZE
+  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -cdrom $3 -k de -vnc :0 -m $MEMORY_SIZE
   exit 0
 fi
 
@@ -91,7 +91,7 @@ then
     error_post_install
   fi
 
-  NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -k de -vnc :0 -m $MEMORY_SIZE -net user,hostfwd=tcp::2222-:22 -net nic
+  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -k de -vnc :0 -m $MEMORY_SIZE -net user,hostfwd=tcp::2222-:22 -net nic
   exit 0
 fi
 
