@@ -580,6 +580,10 @@ void dump_mappings(void){
 
   	snprintf(filename, 256, "/proc/%d/maps", getpid());
 
+	if(access(filename, R_OK) != 0){
+		return;
+	}
+
   	FILE* f = fopen(filename, "r");
     uint32_t len = 0;
     while(1){
