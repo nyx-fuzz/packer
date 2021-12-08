@@ -339,7 +339,7 @@ static void setup_interpreter(void* payload_buffer) {
   uint8_t* data_ptr = (uint8_t*)(payload_buffer+offsets[4]);
   ASSERT(offsets[3]+(*graph_size)*sizeof(uint16_t) <= PAYLOAD_SIZE);
   ASSERT(offsets[4]+*data_size <= PAYLOAD_SIZE);
-  init_interpreter(vm, graph_ptr, graph_size, data_ptr, data_size, (void*)&ijon_trace_buffer->interpreter_data.executed_opcode_num);
+  init_interpreter(vm, graph_ptr, (size_t*)graph_size, data_ptr, (size_t*)data_size, (void*)&ijon_trace_buffer->interpreter_data.executed_opcode_num);
   interpreter_user_init(vm);
   vm->user_data = &vm_state;
 }
@@ -393,19 +393,18 @@ static void debug_time(void){
     hprintf("Time: %s - TSC: %lx\n", buffer, bench_start);
 }
 
-#if defined(__x86_64__)
 
 typedef struct address_range_s{
     char* name;
     bool found;
-    uint64_t start;
-    uint64_t end; 
+    uintptr_t start;
+    uintptr_t end; 
 
-    uint64_t ip0_a;
-    uint64_t ip0_b;
+    uintptr_t ip0_a;
+    uintptr_t ip0_b;
 
-    uint64_t ip1_a;
-    uint64_t ip1_b;
+    uintptr_t ip1_a;
+    uintptr_t ip1_b;
 } address_range_t;
 
 static int callback(struct dl_phdr_info *info, size_t size, void *data){
@@ -417,12 +416,12 @@ static int callback(struct dl_phdr_info *info, size_t size, void *data){
 
             for (j = 0; j < info->dlpi_phnum; j++) {
                 if(j == 0){
-                    ar->start = (uint64_t)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
+                    ar->start = (uintptr_t)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
                     continue;
                 }
 
                 if(j == info->dlpi_phnum-1){
-                    ar->end = (uint64_t)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr) + info->dlpi_phdr[j].p_memsz;
+                    ar->end = (uintptr_t)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr) + info->dlpi_phdr[j].p_memsz;
                     ar->found = true;
                     break;
                 }
@@ -441,10 +440,13 @@ void calc_address_range(address_range_t* ar){
         ar->ip0_b = ar->start-1;
 
         ar->ip1_a = ar->end;
+#if defined(__i386__)
+        ar->ip1_b = 0xfffff000;
+#elif defined(__x86_64__)
         ar->ip1_b = 0x7ffffffff000;
+#endif
     }
 }
-#endif
 
 /* 
     Enable this option to boost targets running in reload mode. 
@@ -813,7 +815,6 @@ void nyx_init_start(void){
         //setrlimit(RLIMIT_AS, &r);
     }
 
-#if defined(__x86_64__)
     address_range_t* ar = malloc(sizeof(address_range_t));
     memset(ar, 0x0, sizeof(address_range_t));
     ar->name = "ld_preload_fuzz.so";
@@ -868,6 +869,8 @@ void nyx_init_start(void){
     //fptr_read = dlsym(RTLD_NEXT, "read"); 
     //fptr_getline = dlsym(RTLD_NEXT, "getline"); 
     //fprintf(stderr, "called setup()\n");
+    free(ar);
+    free(ranges);
 
 #ifndef LEGACY_MODE
     vm = new_interpreter();
@@ -875,10 +878,6 @@ void nyx_init_start(void){
     vm->user_data->len = 0;
     vm->user_data->data = 0;
     vm->user_data->closed = false;
-#endif
-    free(ar);
-    free(ranges);
-
 #endif
 
     uint8_t mlock_enabled = 1;

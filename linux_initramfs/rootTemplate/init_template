@@ -18,6 +18,9 @@ addgroup ubuntu
 adduser --gecos "ubuntu" --disabled-password --ingroup ubuntu ubuntu
 echo "ubuntu:ubuntu" | chpasswd
 
+# multiarch support
+export LD_LIBRARY_PATH=/lib32
+
 START
 #./loader
 #sh

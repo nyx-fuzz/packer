@@ -378,7 +378,7 @@ def compile(config):
         f.write(f_content)
         f.close()
 
-    download_script += "LD_LIBRARY_PATH=/tmp/ "
+    download_script += "LD_LIBRARY_PATH=/tmp/:$LD_LIBRARY_PATH "
 
     if asan_lib:
         download_script += "LD_BIND_NOW=1 LD_PRELOAD=/tmp/%s:ld_preload_fuzz.so "%(asan_lib)

@@ -35,13 +35,13 @@ mkdir rootTemplate/lib64/
 mkdir rootTemplate/lib/i386-linux-gnu/
 mkdir rootTemplate/lib/x86_64-linux-gnu/
 
-cp /lib/ld-linux.so.2 rootTemplate/lib/ld-linux.so.2
-cp /lib64/ld-linux-x86-64.so.2 rootTemplate/lib64/ld-linux-x86-64.so.2
-cp /lib/x86_64-linux-gnu/libdl.so.2 rootTemplate/lib/x86_64-linux-gnu/libdl.so.2
-cp /lib/x86_64-linux-gnu/libc.so.6 rootTemplate//lib/x86_64-linux-gnu/libc.so.6
-cp /lib32/libc.so.6  rootTemplate//lib32/libc.so.6
-cp /lib/ld-linux.so.2 rootTemplate/lib/ld-linux.so.2
-cp /lib32/libdl.so.2 rootTemplate/lib32/libdl.so.2
+cp -L /lib/ld-linux.so.2 rootTemplate/lib/ld-linux.so.2
+cp -L /lib64/ld-linux-x86-64.so.2 rootTemplate/lib64/ld-linux-x86-64.so.2
+cp -L /lib/x86_64-linux-gnu/libdl.so.2 rootTemplate/lib/x86_64-linux-gnu/libdl.so.2
+cp -L /lib/x86_64-linux-gnu/libc.so.6 rootTemplate//lib/x86_64-linux-gnu/libc.so.6
+cp -L /lib32/libc.so.6  rootTemplate//lib32/libc.so.6
+cp -L /lib/ld-linux.so.2 rootTemplate/lib/ld-linux.so.2
+cp -L /lib32/libdl.so.2 rootTemplate/lib32/libdl.so.2
 
 # fix nasty nss bugs (getpwnam_r, ...)
 cp /lib/x86_64-linux-gnu/libnss_compat.so.2 rootTemplate//lib/x86_64-linux-gnu/
