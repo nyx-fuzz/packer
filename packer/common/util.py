@@ -26,7 +26,10 @@ import time
 import tty
 import uuid
 from shutil import copyfile
+import subprocess
 
+import common.color
+from common.color import WARNING_PREFIX, ERROR_PREFIX, FAIL, WARNING, ENDC, OKGREEN, BOLD, OKBLUE, INFO_PREFIX, OKGREEN
 from common.debug import logger
 
 __author__ = 'Sergej Schumilo'
@@ -196,5 +199,26 @@ def ask_for_permission(data, text, color='\033[91m'):
     return True
 
 
-def json_dumper(obj):
-    return obj.__dict__
+def execute(cmd, cwd, print_output=True, print_cmd=False):
+    if print_cmd:
+        print(OKBLUE + "\t  " + "Executing: " + " ".join(cmd) + ENDC)
+
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if print_output:
+        while True:
+            output = proc.stdout.readline()
+            if output:
+                print(output),
+            else:
+                break
+        while True:
+            output = proc.stderr.readline()
+            if output:
+                print(FAIL + output.decode("utf-8")  + ENDC),
+            else:
+                break
+    if proc.wait() != 0:
+        print(FAIL + "Error while executing " + " ".join(cmd) + ENDC)
+
+def to_real_path(relative_path):
+    return os.path.realpath(os.path.dirname(os.path.realpath(__file__ + "/../")) + "/" + relative_path)

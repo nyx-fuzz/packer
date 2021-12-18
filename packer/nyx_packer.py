@@ -31,7 +31,7 @@ from shutil import copyfile, rmtree, copytree
 import common.color
 from common.color import WARNING_PREFIX, ERROR_PREFIX, FAIL, WARNING, ENDC, OKGREEN, BOLD, OKBLUE, INFO_PREFIX, OKGREEN
 from common.self_check import self_check
-from common.util import ask_for_permission
+from common.util import ask_for_permission, execute
 
 __author__ = 'sergej'
 
@@ -39,6 +39,7 @@ def copy_dependencies(config, target_executable, target_folder, ld_type, agent_f
     result_string = ""
     #is_asan_build = False
     asan_lib = None
+    ld_linux = None
     download_script = ""
     print(OKGREEN + INFO_PREFIX + "Gathering dependencies of " + target_executable + ENDC)
     cmd = "lddtree -l " + target_executable
@@ -52,6 +53,7 @@ def copy_dependencies(config, target_executable, target_folder, ld_type, agent_f
     library_name = []
 
     libasan_name = "libasan.so"
+    ld_linux_name = "ld-linux-x86-64.so"
 
     for i in range(len(dependencies)):
         if dependencies[i] == "libnyx.so":
@@ -64,36 +66,15 @@ def copy_dependencies(config, target_executable, target_folder, ld_type, agent_f
         if libasan_name in d:
             asan_lib = os.path.basename(d)
             #is_asan_build = True
+        if ld_linux_name in d:
+            ld_linux = os.path.basename(d)
         download_script += "./hget %s%s %s%s\n"%(folder, os.path.basename(d), folder, os.path.basename(d))
         copyfile(d, "%s/%s"%(target_folder, os.path.basename(d)))
 
     #except Exception as e:
     #    print(FAIL + "Error while running lddtree: " + str(e) + ENDC)
 
-    return download_script, asan_lib
-
-
-def execute(cmd, cwd, print_output=True, print_cmd=False):
-    if print_cmd:
-        print(OKBLUE + "\t  " + "Executing: " + " ".join(cmd) + ENDC)
-
-    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if print_output:
-        while True:
-            output = proc.stdout.readline()
-            if output:
-                print(output),
-            else:
-                break
-        while True:
-            output = proc.stderr.readline()
-            if output:
-                print(FAIL + output.decode("utf-8")  + ENDC),
-            else:
-                break
-    if proc.wait() != 0:
-        print(FAIL + "Error while executing " + " ".join(cmd) + ENDC)
-
+    return download_script, asan_lib, ld_linux
 
 def check_elf(file):
     proc = subprocess.Popen(("file " + file).split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -173,11 +154,9 @@ def compile(config):
     else:
         NYX_NET_STDIN = None
 
-    AFL_MODE = config.argument_values["afl_mode"]
     DELAYED_INIT = config.argument_values["delayed_init"]
     FAST_EXIT_MODE = config.argument_values["fast_reload_mode"]
     LEGACY_FILE_MODE = config.argument_values["file"]
-    LEGACY_MODE = config.argument_values["legacy"]
     NET_FUZZ_MODE = config.argument_values["nyx_net"]
     NET_FUZZ_PORT = config.argument_values["nyx_net_port"]
     DISABLE_PT_RANGE_A = config.argument_values["no_pt_auto_conf_a"]
@@ -185,7 +164,6 @@ def compile(config):
     SETUP_FOLDER = config.argument_values["setup_folder"]
     UDP_MODE = config.argument_values["nyx_net_udp"]
     CLIENT_MODE = config.argument_values["nyx_net_client_mode"]
-    RECOMPILE_SPEC = config.argument_values["recompile_spec"]
     DEBUG_MODE = config.argument_values["nyx_net_debug_mode"]
     STDOUT_STDERR_DEBUG = config.argument_values["debug_stdin_stderr"]
     IGNORE_UDP_PORT = config.argument_values["ignore_udp_port"]
@@ -193,7 +171,20 @@ def compile(config):
     PRE_PROCESS_ARGS = config.argument_values["add_pre_process_args"]
     SET_CLIENT_UDP_PORT = config.argument_values["set_client_udp_port"]
 
+    if config.argument_values["mode"] == "afl":
+        LEGACY_MODE = True
+    elif config.argument_values["mode"] == "spec":
+        LEGACY_MODE = False
+    else:
+        raise Exception("Unkown mode: %s"%(config.argument_values["mode"]))
     
+    if config.argument_values["coverage"] == "instrumentation":
+        COVERAGE_MODE = True
+    elif config.argument_values["coverage"] == "process_trace":
+        COVERAGE_MODE = False
+    else:
+        raise Exception("Unkown mode: %s"%(config.argument_values["Coverage"]))
+ 
     #print(DISABLE_PT_RANGE_A)
     #print(DISABLE_PT_RANGE_B)
 
@@ -202,9 +193,8 @@ def compile(config):
         return 
 
     if not LEGACY_MODE and SPEC_FOLDER:
-        if RECOMPILE_SPEC or not spec_is_compiled(SPEC_FOLDER):
-            if not compile_spec(SPEC_FOLDER, config.config_values["NYX-INTERPRETER-FOLDER"]):
-                return
+        if not compile_spec(SPEC_FOLDER, config.config_values["NYX-INTERPRETER-FOLDER"]):
+            return
 
     if len(os.listdir(config.argument_values["output_dir"])) != 0:
         if config.argument_values["purge"]:
@@ -215,20 +205,14 @@ def compile(config):
             print(FAIL + "Error: %s is not empty!"%(config.argument_values["output_dir"]) + ENDC)
             return
 
-    if not check_memlimit(config.argument_values["m"], config.argument_values["mode"] == "m32"):
+    target_architecture = check_elf(config.argument_values["binary_file"])
+    if not target_architecture:
         return
 
-    elf_mode = check_elf(config.argument_values["binary_file"])
-    if not elf_mode:
+    if not check_memlimit(config.argument_values["m"], target_architecture == "m32"):
         return
 
-
-    print(OKGREEN + INFO_PREFIX + "Executable architecture is Intel " + elf_mode + "-bit ..." + ENDC)
-    if (elf_mode == "32" and config.argument_values["mode"] == "m64") or (
-            elf_mode == "64" and config.argument_values["mode"] == "m32"):
-        print(WARNING + WARNING_PREFIX + "Executable architecture mismatch!" + ENDC)
-        if not ask_for_permission("IGNORE", " to continue:", color=WARNING):
-            return
+    print(OKGREEN + INFO_PREFIX + "Executable architecture is Intel " + target_architecture + "-bit ..." + ENDC)
 
     os.environ["STDOUT_STDERR_DEBUG"] = ""
     if SPEC_FOLDER:
@@ -252,7 +236,7 @@ def compile(config):
     if SET_CLIENT_UDP_PORT:
         os.environ["STDOUT_STDERR_DEBUG"] += "-DCLIENT_UDP_PORT=" + str(SET_CLIENT_UDP_PORT) + " "
 
-    if config.argument_values["mode"] == "m64":
+    if target_architecture == "64":
         objcopy_type = "elf64-x86-64"
         mode = "64"
         ld_type = "elf_x86_64"
@@ -305,7 +289,7 @@ def compile(config):
 
     if PRE_PROCESS:
         os.mkdir(config.argument_values["output_dir"] + "/pre_process")
-        pre_process_dependencies, pre_process_asan_lib = copy_dependencies(config, PRE_PROCESS,  config.argument_values["output_dir"]+"/pre_process", ld_type, agent_folder, folder="pre_process/")
+        pre_process_dependencies, pre_process_asan_lib, ld_linux = copy_dependencies(config, PRE_PROCESS,  config.argument_values["output_dir"]+"/pre_process", ld_type, agent_folder, folder="pre_process/")
 
         download_script += "mkdir pre_process/\n"
         download_script += pre_process_dependencies
@@ -313,7 +297,7 @@ def compile(config):
         copyfile(PRE_PROCESS, "%s/%s"%(config.argument_values["output_dir"] + "/pre_process", os.path.basename(PRE_PROCESS)))
         download_script += "./hget pre_process/%s pre_process/pre_process\n"%(os.path.basename(PRE_PROCESS))
 
-    dependencies, asan_lib = copy_dependencies(config, config.argument_values["binary_file"],  config.argument_values["output_dir"], ld_type, agent_folder)
+    dependencies, asan_lib, ld_linux = copy_dependencies(config, config.argument_values["binary_file"],  config.argument_values["output_dir"], ld_type, agent_folder)
 
     asan_executable = False
     if not asan_lib:
@@ -324,7 +308,11 @@ def compile(config):
     download_script += "echo \"Let's get our target executable...\" | ./hcat\n"
     copyfile(config.argument_values["binary_file"], "%s/%s"%(config.argument_values["output_dir"], os.path.basename(config.argument_values["binary_file"])))
     download_script += "./hget %s target_executable\n"%(os.path.basename(config.argument_values["binary_file"]))
-    download_script += "chmod +x target_executable\n"
+    
+    if ld_linux:
+        download_script += "chmod +x %s\n"%(ld_linux)
+    else:
+        download_script += "chmod +x target_executable\n"
 
     if SETUP_FOLDER:
         download_script += "echo \"Let's get our setup script...\" | ./hcat\n"
@@ -360,12 +348,7 @@ def compile(config):
         copyfile(ld_preload_fuzz_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(ld_preload_fuzz_file)))
         ld_preload_fuzz_file = agent_folder + "ld_preload_fuzz_no_pt.so"
         copyfile(ld_preload_fuzz_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(ld_preload_fuzz_file)))
-        
-    if (config.argument_values["extra_file"]):
-        copyfile(config.argument_values["extra_file"], "%s/%s"%(config.argument_values["output_dir"],os.path.basename(config.argument_values["extra_file"])))
-        download_script += "./hget \"%s\" \"%s\"\n"%(os.path.basename(config.argument_values["extra_file"]), os.path.basename(config.argument_values["extra_file"]))
-
-
+    
     if PRE_PROCESS and PRE_PROCESS_ARGS:
         download_script += "chmod +x pre_process/pre_process\n"
         download_script += "./hget run.sh run.sh\n"
@@ -388,7 +371,7 @@ def compile(config):
 
     if DELAYED_INIT:
         download_script += "DELAYED_NYX_FUZZER_INIT=ON "
-    if AFL_MODE:
+    if COVERAGE_MODE:
         download_script += "NYX_AFL_PLUS_PLUS_MODE=ON "
     if FAST_EXIT_MODE:
         download_script += "NYX_FAST_EXIT_MODE=TRUE "
@@ -407,8 +390,10 @@ def compile(config):
     else:
         download_script += "MALLOC_CHECK_=2 " 
 
-
-    download_script += "./target_executable %s"%(config.argument_values["args"]) # fixme
+    if ld_linux:
+        download_script += "./%s ./target_executable %s"%(ld_linux, config.argument_values["args"]) # fixme
+    else:
+        download_script += "./target_executable %s"%(config.argument_values["args"]) # fixme
 
     if NYX_NET_STDIN:
         download_script += " < stdin.input "
@@ -424,7 +409,7 @@ def compile(config):
 
  
     download_script += "dmesg | grep segfault | ./hcat\n"
-    download_script += "./habort\n"
+    download_script += "./habort \"Target has terminated without initializing the fuzzing agent ...\"\n"
 
     # Todo: ASAN, memlimit, stdin, filemode ...
 

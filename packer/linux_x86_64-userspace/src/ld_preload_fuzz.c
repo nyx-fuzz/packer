@@ -798,10 +798,10 @@ void nyx_init_start(void){
     kAFL_ranges* range_buffer = mmap((void*)NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     memset(range_buffer, 0xff, 0x1000);
     kAFL_hypercall(HYPERCALL_KAFL_USER_RANGE_ADVISE, (uintptr_t)range_buffer);
- 
+
     for(i = 0; i < 4; i++){
-        if ((uint8_t)range_buffer->enabled[i]){
-            hprintf("[init] Intel PT range %d is enabled\t -> (%"PRIx64"-%"PRIx64")\n", i, (uint8_t)range_buffer->enabled[i], range_buffer->ip[i], range_buffer->size[i]);
+        if (range_buffer->enabled[i]){
+            hprintf("[init] Intel PT range %d is enabled\t -> (0x"PRIx64"-0x"PRIx64")\n", i, range_buffer->ip[i], range_buffer->ip[i]+range_buffer->size[i]);
         }
     }
 
@@ -978,6 +978,11 @@ void nyx_init_start(void){
             close(pipe_stdout_hprintf[1]);
             #endif          
             waitpid(pid, &status, WUNTRACED);
+
+            if(get_harness_state()->fast_exit_mode){
+                kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)"Error: --fast_reload_mode is not supported in non-reload mode...");
+            }
+            
             if(WIFSIGNALED(status)){
                 kAFL_hypercall(HYPERCALL_KAFL_PANIC, 1);
             } 
@@ -1000,13 +1005,12 @@ void nyx_init_start(void){
             hprintf("-----------------------------\n");
             #endif 
          
-            //hprintf("PARENT RELEASE\n");
             kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
             mlock_enabled = 0;
 
         }
         else{
-            //hprintf("FORK FAILED\n");
+            kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)"Error: fork() has failed...");
         }
     }
 }

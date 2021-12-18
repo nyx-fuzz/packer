@@ -28,8 +28,9 @@ import sys
 import common.color
 from common.info import show_banner
 
-from common.util import is_float, is_int, json_dumper, Singleton
+from common.util import is_float, is_int, Singleton, execute, to_real_path
 from common.self_check import vmx_pt_get_addrn
+from common.color import WARNING_PREFIX, ERROR_PREFIX, FAIL, WARNING, ENDC, OKGREEN, BOLD, OKBLUE, INFO_PREFIX, OKGREEN
 
 default_section = "Packer"
 default_config = {
@@ -156,10 +157,9 @@ class ConfigReader(object):
             config.write(f)
             f.close()
 
-
     def __get_path(self, value):
         if self.config_value[value].startswith("."):
-            self.config_value[value] = os.path.realpath(os.path.dirname(os.path.realpath(__file__ + "/../")) + "/" + self.config_value[value])
+            self.config_value[value] = to_real_path(self.config_value[value])           
         return self.config_value[value]
 
 
@@ -173,12 +173,17 @@ class ConfigReader(object):
             print("nyx.ini ERROR: %s is not a folder (fix %s)"%(self.config_value['NYX-INTERPRETER-FOLDER'], "NYX-INTERPRETER-FOLDER"))
             sys.exit(1)
 
+        if not os.path.isfile(self.__get_path("INIT_RAMFS")):
+            if self.__get_path('INIT_RAMFS') == to_real_path(default_config['INIT_RAMFS']):
+                print(OKGREEN + INFO_PREFIX+ "Packing init_ramfs..." + ENDC)
+                execute(["sh", "pack.sh"], to_real_path("../linux_initramfs/"), print_output=True)
+
         if not os.path.isfile(self.__get_path('KERNEL')):
             print("nyx.ini ERROR: %s is not a file (fix %s)"%(self.config_value['KERNEL'], "KERNEL"))
             sys.exit(1)
 
         if not os.path.isfile(self.__get_path("INIT_RAMFS")):
-            print("nyx.ini ERROR: %s is not a folder (fix %s)"%(self.config_value['INIT_RAMFS'], "INIT_RAMFS"))
+            print("nyx.ini ERROR: %s is not a file (fix %s)"%(self.config_value['INIT_RAMFS'], "INIT_RAMFS"))
             sys.exit(1)
 
         if not os.path.isdir(self.__get_path('DEFAULT_FUZZER_CONFIG_FOLDER')):
@@ -259,20 +264,23 @@ class PackerConfiguration:
         self.config_values = ConfigReader(os.path.dirname(os.path.realpath(__file__))+"/../nyx.ini", self.__config_section, self.__config_default).get_values()
 
     def __load_arguments(self):
-        modes = ["m32", "m64"]
-        modes_help = 'm32\tpack and compile as an i386   executable.\n' \
-                     'm64\tpack and compile as an x86-64 executable.\n'
+        modes = ["afl", "spec"]
+        modes_help = 'afl\t\t - pack target for an AFL-like fuzzer (such as AFL++, kAFL, Nautilus)\n' \
+                     'spec\t\t - pack target for a spec fuzzer (such as Nyx\'s spec-fuzzer)\n'
+
+        coverage_modes = ["instrumentation", "process_trace"]
+        coverage_modes_help = 'instrumentation\t - use compile-time instrumentation (target has to be compiled with an proper compiler)\n' \
+                     'process_trace\t - enable Intel-PT tracing (requires KVM-Nyx)\n'
 
         parser = ArgsParser(formatter_class=argparse.RawTextHelpFormatter)
         parser.set_banner_text("Nyx Share Dir Packer")
-
 
         parser.add_argument('binary_file', metavar='<Executable>', action=FullPath, type=parse_is_file,
                             help='path to the user space executable file.')
         parser.add_argument('output_dir', metavar='<Output Directory>', action=FullPath, type=create_dir,
                             help='path to the output directory.')
         parser.add_argument('mode', metavar='<Mode>', choices=modes, help=modes_help)
-
+        parser.add_argument('coverage', metavar='<Coverage>', choices=coverage_modes, help=coverage_modes_help)
 
         parser.add_argument('-args', metavar='<args>', help='define target arguments.', default="", type=str)
         parser.add_argument('-file', metavar='<file>', help='write payload to file instead of stdin.', default="",
@@ -282,25 +290,18 @@ class PackerConfiguration:
                             type=int)
         parser.add_argument('-spec', action=FullPath, type=parse_is_dir, help='path to the NYX spec folder.')
 
-        parser.add_argument('--recompile_spec', help='recompile nyx spec file', action='store_true', default=False)
-
         parser.add_argument('--delayed_init', help='delayed fuzzing entry point', action='store_true', default=False)
-        parser.add_argument('--legacy', help='run target in legacy kAFL mode', action='store_true', default=False)
         parser.add_argument('--fast_reload_mode', help='fast reload acceleration (experimental)', action='store_true', default=False)
-
-        parser.add_argument('--extra_file', help='pack addional files', default="", type=str)
         parser.add_argument('--setup_folder', help='pack addional setup folder', default="", type=parse_is_setup_dir)
-
         parser.add_argument('--purge', help='delete output_dir', action='store_true', default=False)
 
-        tracing = parser.add_argument_group("Coverage Tracing")
+        tracing = parser.add_argument_group("Intel-PT Option")
 
-        tracing.add_argument('--afl_mode', help='run afl executable', action='store_true', default=False)
         tracing.add_argument('--no_pt_auto_conf_a', help='disable Intel PT range auto configuration for range A (usually the target executable without shared libraries)', action='store_true', default=False)
         tracing.add_argument('--no_pt_auto_conf_b', help='disable Intel PT range auto configuration for range B (usually all shared libraries without the target executable)', action='store_true', default=False)
 
 
-        nyx_net_group = parser.add_argument_group("Nyx-Net")
+        nyx_net_group = parser.add_argument_group("Nyx-Net Option")
 
         nyx_net_group.add_argument('--nyx_net', help='enable nyx network fuzzing', action='store_true', default=False)
         nyx_net_group.add_argument('--nyx_net_port', metavar='<nyx_net_port>', help='fuzz specified network port', default=0, type=int)
@@ -308,13 +309,13 @@ class PackerConfiguration:
         nyx_net_group.add_argument('--nyx_net_client_mode', help='fuzz target in client mode', action='store_true', default=False)
         nyx_net_group.add_argument('--nyx_net_stdin', help='use file as stdin input', action=FullPath, type=parse_is_file)
 
-        nyx_net_group = parser.add_argument_group("Nyx-Net Extras")
+        nyx_net_group = parser.add_argument_group("Nyx-Net Advanced Options")
         nyx_net_group.add_argument('--add_pre_process', metavar='<pre_process>', help='path to pre-process', action=FullPath, type=parse_is_file)
         nyx_net_group.add_argument('--add_pre_process_args', metavar='<pre_process_ags>', help='args of preprocess', default="", type=str)
         nyx_net_group.add_argument('--ignore_udp_port', metavar='<ignore_udp_port>', help='ignore specific UDP port', default=0, type=int)
         nyx_net_group.add_argument('--set_client_udp_port', metavar='<set_client_udp_port>', help='set UDP client port number', default=0, type=int)
 
-        debug_group = parser.add_argument_group("Debug")
+        debug_group = parser.add_argument_group("Debug Options")
 
         debug_group.add_argument('--debug_stdin_stderr', help='redirect stdin / stderr data via hcat to hypervisor', action='store_true', default=False)
         debug_group.add_argument('--nyx_net_debug_mode', help='add hprintfs to debug nyx_net targets', action='store_true', default=False)

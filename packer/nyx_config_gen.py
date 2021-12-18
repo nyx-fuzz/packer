@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 from jinja2 import Template, Environment
 import sys, os
@@ -67,54 +68,71 @@ template_vm_default = \
 
 template_kernel = \
   """
-  #![enable(implicit_some)]
-  (
-      include_default_config_path: "{{ default_config_path }}",
-      runner: QemuKernel((
-          //debug: false,
-      )),
-      fuzz: (
-          workdir_path: "{{ default_workdir }}",
+#![enable(implicit_some)]
+(
+    include_default_config_path: "{{ default_config_path }}",
+    runner: QemuKernel((
+      //debug: false,
+    )
+  ),
+  fuzz: (
+    workdir_path: "{{ default_workdir }}",
   {% if mem %}
-          mem_limit: {{ mem }},
+    mem_limit: {{ mem }},
   {% else %}
-          //mem_limit: 512,
+    //mem_limit: 512,
   {%endif %}
-          //snapshot_placement: none,
   {% if seed_path %}
-          seed_path: "{{ seed_path }}",
+    seed_path: "{{ seed_path }}",
   {%else%}
-          seed_path: "",
+  seed_path: "",
   {%endif %}
-          dict: [
+    dict: [
   {% if dict_entries %}          {{ dict_entries }}{%endif %}
-          ],
+    ],
   {% if disable_timeouts %}
-          time_limit: (
-              secs: 0,
-              nanos: 0,       
-          ),
+    time_limit: (
+      secs: 0,
+      nanos: 0,       
+    ),
   {%endif %}
   {% if sec != 0 or nanos != 0 %}
-          time_limit: (
-              secs: {{ sec }},
-              nanos: {{ nanos }},       
-            ),
+    time_limit: (
+      secs: {{ sec }},
+      nanos: {{ nanos }},       
+    ),
   {%endif %}
+  ip0: (
+        a: 0,
+        b: 0,
       ),
-  )
+      ip1: (
+        a: 0,
+        b: 0,
+      ),
+      ip2: (
+        a: 0,
+        b: 0,
+      ),
+      ip3: (
+        a: 0,
+        b: 0,
+      ),
+  ),
+)
   """
 
 template_vm = \
   """
-  #![enable(implicit_some)]
-  (
-      include_default_config_path: "{{ default_config_path }}",
-      runner: QemuSnapshot((
-          //debug: false,
-      )),
-      fuzz: (
-          workdir_path: "{{ default_workdir }}",
+#![enable(implicit_some)]
+(
+    include_default_config_path: "{{ default_config_path }}",
+    runner: QemuSnapshot((
+        //debug: false,
+    )
+  ),
+  fuzz: (
+    workdir_path: "{{ default_workdir }}",
   {% if mem %}        mem_limit: {{ mem }},{%endif %}
           //snapshot_placement: none,
   {% if seed_path %}        seed_path: "{{ seed_path }}",{%endif %}
@@ -133,8 +151,24 @@ template_vm = \
               nanos: {{ nanos }},       
             ),
   {%endif %}
+  ip0: (
+        a: 0,
+        b: 0,
       ),
-  )
+      ip1: (
+        a: 0,
+        b: 0,
+      ),
+      ip2: (
+        a: 0,
+        b: 0,
+      ),
+      ip3: (
+        a: 0,
+        b: 0,
+      ),
+  ),
+)
   """
 
 
