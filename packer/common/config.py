@@ -36,7 +36,7 @@ default_section = "Packer"
 default_config = {
                   "AGENTS-FOLDER": "./",
                   "NYX-INTERPRETER-FOLDER": "./interpreter/",
-                  "QEMU-PT_PATH": "../../qemu-nyx/x86_64-softmmu/qemu-system-x86_64",
+                  "QEMU-PT_PATH": "../../QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64",
                   "KERNEL": "../linux_initramfs/bzImage-linux-4.15-rc7",
                   "INIT_RAMFS": "../linux_initramfs/init.cpio.gz",
                   "DEFAULT_FUZZER_CONFIG_FOLDER": "./fuzzer_configs/",
