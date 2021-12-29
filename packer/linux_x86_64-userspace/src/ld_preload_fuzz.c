@@ -24,6 +24,7 @@
 
 //#define HYPERCALL_KAFL_RELEASE_DEBUG
 
+__attribute__((weak)) extern unsigned int __afl_final_loc;
 
 bool fuzz_process = false;
 
@@ -1025,6 +1026,8 @@ char *getenv(const char *name){
 
 void *shmat(int shmid, const void *shmaddr, int shmflg){
     if(get_harness_state()->afl_mode && shmid == 5134680){
+        unsigned int map_size = __afl_final_loc == 0 ? 65536 : __afl_final_loc;
+        // TODO send map_size to host
         capabilites_configuration(false, true, false);
         if(!get_harness_state()->net_fuzz_mode){
 #ifndef LEGACY_MODE
