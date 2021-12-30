@@ -4,7 +4,7 @@
 <img align="right" width="200"  src="logo.png">
 </p>
 
-This repository contains the image packer for nyx vms. It is used to perform a variety of tasks that create a functioning sharedir (which contains all bundled data needed to spawn and run a VM). This includes agent (and if needed target binaries), various scripts running in the VM, config files (which links the kernel or disc image), seeds etc.  
+This repository contains the image packer for nyx VMs. It is used to perform a variety of tasks that create a functioning Nyx sharedir (which contains all bundled data needed to spawn and run a VM). This includes agent (and if needed target binaries), various scripts running in the VM, config files (which links the kernel or disc image), seeds etc.  
 
 ## Bug Reports and Contributions
 
