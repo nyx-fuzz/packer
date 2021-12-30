@@ -12,7 +12,9 @@ Should you find a bug in this tool and need help fixing it, please make sure tha
 
 ### License
 
-This tool is provided under **AGPL license**. 
+This tool is provided under **AGPL license**, except for the `nyx.h` file, which is separately licensed under the **MIT license**. 
+All busybox executables and the Linux kernel image (located in `./linux_initramfs`) were built from code licensed under the GNU General Public License version 2 (GPLv2).
+
 
 **Free Software Hell Yeah!** 
 
