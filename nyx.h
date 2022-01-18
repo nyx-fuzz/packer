@@ -47,19 +47,34 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #define HYPERCALL_KAFL_RAX_ID				0x01f
 #define HYPERCALL_KAFL_ACQUIRE				0
 #define HYPERCALL_KAFL_GET_PAYLOAD			1
+
+/* deprecated */
 #define HYPERCALL_KAFL_GET_PROGRAM			2
+/* deprecated */
 #define HYPERCALL_KAFL_GET_ARGV				3
+
 #define HYPERCALL_KAFL_RELEASE				4
 #define HYPERCALL_KAFL_SUBMIT_CR3			5
 #define HYPERCALL_KAFL_SUBMIT_PANIC			6
+
+/* deprecated */
 #define HYPERCALL_KAFL_SUBMIT_KASAN			7
+
 #define HYPERCALL_KAFL_PANIC				8
+
+/* deprecated */
 #define HYPERCALL_KAFL_KASAN				9
 #define HYPERCALL_KAFL_LOCK					10
+
+/* deprecated */
 #define HYPERCALL_KAFL_INFO					11
+
 #define HYPERCALL_KAFL_NEXT_PAYLOAD			12
 #define HYPERCALL_KAFL_PRINTF				13
+
+/* deprecated */
 #define HYPERCALL_KAFL_PRINTK_ADDR			14
+/* deprecated */
 #define HYPERCALL_KAFL_PRINTK				15
 
 /* user space only hypercalls */
@@ -90,14 +105,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #define HYPERCALL_KAFL_NESTED_CONFIG		(1 | HYPERTRASH_HYPERCALL_MASK)
 #define HYPERCALL_KAFL_NESTED_ACQUIRE		(2 | HYPERTRASH_HYPERCALL_MASK)
 #define HYPERCALL_KAFL_NESTED_RELEASE		(3 | HYPERTRASH_HYPERCALL_MASK)
-#define HYPERCALL_KAFL_NESTED_HPRINTF		(4 | HYPERTRASH_HYPERCALL_MASK)
-
-
-#define PAYLOAD_SIZE						(128 << 10)				/* up to 128KB payloads */
-#define PROGRAM_SIZE						(128 << 20)				/* kAFL supports 128MB programm data */
-#define INFO_SIZE        					(128 << 10)				/* 128KB info string */
-#define TARGET_FILE							"/tmp/fuzzing_engine"	/* default target for the userspace component */
-#define TARGET_FILE_WIN						"fuzzing_engine.exe"	
+#define HYPERCALL_KAFL_NESTED_HPRINTF		(4 | HYPERTRASH_HYPERCALL_MASK)gre
 
 #define HPRINTF_MAX_SIZE					0x1000					/* up to 4KB hprintf strings */
 
@@ -109,7 +117,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 typedef struct{
 	int32_t size;
-	uint8_t data[PAYLOAD_SIZE-sizeof(int32_t)];
+	uint8_t data[];
 } kAFL_payload;
 
 typedef struct{
@@ -279,6 +287,10 @@ static void hprintf(const char * format, ...){
 	va_end(args);
 }
 #endif
+
+static void habort(char* msg){
+	kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)msg);
+}
 
 #define NYX_HOST_MAGIC  0x4878794e
 #define NYX_AGENT_MAGIC 0x4178794e
