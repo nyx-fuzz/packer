@@ -822,7 +822,6 @@ void nyx_init_start(void){
     //fail();
 
     //hprintf("payload_buffer at %p\n", payload_buffer);
-    memset(payload_buffer, 0, input_buffer_size);
 
     mprotect(payload_buffer, input_buffer_size, PROT_EXEC);
 
