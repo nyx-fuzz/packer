@@ -47,19 +47,34 @@ SOFTWARE.
 #define HYPERCALL_KAFL_RAX_ID				0x01f
 #define HYPERCALL_KAFL_ACQUIRE				0
 #define HYPERCALL_KAFL_GET_PAYLOAD			1
+
+/* deprecated */
 #define HYPERCALL_KAFL_GET_PROGRAM			2
+/* deprecated */
 #define HYPERCALL_KAFL_GET_ARGV				3
+
 #define HYPERCALL_KAFL_RELEASE				4
 #define HYPERCALL_KAFL_SUBMIT_CR3			5
 #define HYPERCALL_KAFL_SUBMIT_PANIC			6
+
+/* deprecated */
 #define HYPERCALL_KAFL_SUBMIT_KASAN			7
+
 #define HYPERCALL_KAFL_PANIC				8
+
+/* deprecated */
 #define HYPERCALL_KAFL_KASAN				9
 #define HYPERCALL_KAFL_LOCK					10
+
+/* deprecated */
 #define HYPERCALL_KAFL_INFO					11
+
 #define HYPERCALL_KAFL_NEXT_PAYLOAD			12
 #define HYPERCALL_KAFL_PRINTF				13
+
+/* deprecated */
 #define HYPERCALL_KAFL_PRINTK_ADDR			14
+/* deprecated */
 #define HYPERCALL_KAFL_PRINTK				15
 
 /* user space only hypercalls */
@@ -90,14 +105,7 @@ SOFTWARE.
 #define HYPERCALL_KAFL_NESTED_CONFIG		(1 | HYPERTRASH_HYPERCALL_MASK)
 #define HYPERCALL_KAFL_NESTED_ACQUIRE		(2 | HYPERTRASH_HYPERCALL_MASK)
 #define HYPERCALL_KAFL_NESTED_RELEASE		(3 | HYPERTRASH_HYPERCALL_MASK)
-#define HYPERCALL_KAFL_NESTED_HPRINTF		(4 | HYPERTRASH_HYPERCALL_MASK)
-
-
-#define PAYLOAD_SIZE						(128 << 10)				/* up to 128KB payloads */
-#define PROGRAM_SIZE						(128 << 20)				/* kAFL supports 128MB programm data */
-#define INFO_SIZE        					(128 << 10)				/* 128KB info string */
-#define TARGET_FILE							"/tmp/fuzzing_engine"	/* default target for the userspace component */
-#define TARGET_FILE_WIN						"fuzzing_engine.exe"	
+#define HYPERCALL_KAFL_NESTED_HPRINTF		(4 | HYPERTRASH_HYPERCALL_MASK)gre
 
 #define HPRINTF_MAX_SIZE					0x1000					/* up to 4KB hprintf strings */
 
@@ -109,7 +117,7 @@ SOFTWARE.
 
 typedef struct{
 	int32_t size;
-	uint8_t data[PAYLOAD_SIZE-sizeof(int32_t)];
+	uint8_t data[];
 } kAFL_payload;
 
 typedef struct{
@@ -280,24 +288,38 @@ static void hprintf(const char * format, ...){
 }
 #endif
 
+static void habort(char* msg){
+	kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)msg);
+}
 
+#define NYX_HOST_MAGIC  0x4878794e
+#define NYX_AGENT_MAGIC 0x4178794e
+
+#define NYX_HOST_VERSION 1 
+#define NYX_AGENT_VERSION 1
 
 typedef struct host_config_s{
+  uint32_t host_magic;
+  uint32_t host_version;
   uint32_t bitmap_size;
   uint32_t ijon_bitmap_size;
-	uint32_t payload_buffer_size;
+uint32_t payload_buffer_size;
   /* more to come */
 } __attribute__((packed)) host_config_t;
 
 typedef struct agent_config_s{
-  uint8_t agent_timeout_detection;
-  uint8_t agent_tracing;
-  uint8_t agent_ijon_tracing;
+	uint32_t agent_magic;
+	uint32_t agent_version;
+	uint8_t agent_timeout_detection;
+	uint8_t agent_tracing;
+	uint8_t agent_ijon_tracing;
 	uint8_t agent_non_reload_mode;
 	uint64_t trace_buffer_vaddr;
 	uint64_t ijon_trace_buffer_vaddr;
+	uint32_t coverage_bitmap_size;
+	uint32_t input_buffer_size;		// TODO: remove this later
 
-	uint8_t dump_payloads; /* is set by the hypervisor */
+  	uint8_t dump_payloads; /* set by hypervisor */
   /* more to come */
 } __attribute__((packed)) agent_config_t;
 

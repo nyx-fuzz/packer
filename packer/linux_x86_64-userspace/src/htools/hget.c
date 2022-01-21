@@ -18,15 +18,19 @@ int main(int argc, char** argv){
     FILE* f = NULL;
 
 
-    uint32_t bytes = 0;
+    uint64_t bytes = 0;
     uint64_t total = 0;
 
     do{
       strcpy(stream_data, argv[1]);
       bytes = kAFL_hypercall(HYPERCALL_KAFL_REQ_STREAM_DATA, (uintptr_t)stream_data);
 
+#if defined(__x86_64__)
       if(bytes == 0xFFFFFFFFFFFFFFFFUL){
-        hprintf("Error: Hypervisor was rejected stream buffer\n");
+#else
+      if(bytes == 0xFFFFFFFFUL){
+#endif
+        habort("Error: Hypervisor has rejected stream buffer (file not found)");
         break;
       }
 

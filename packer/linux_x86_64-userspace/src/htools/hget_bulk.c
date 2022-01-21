@@ -41,8 +41,12 @@ int main(int argc, char** argv){
     do{
       bytes = kAFL_hypercall(HYPERCALL_KAFL_REQ_STREAM_DATA_BULK, (uintptr_t)stream_data_ctrl);
 
+#if defined(__x86_64__)
       if(bytes == 0xFFFFFFFFFFFFFFFFUL){
-        hprintf("Error: Hypervisor was rejected stream buffer\n");
+#else
+      if(bytes == 0xFFFFFFFFUL){
+#endif
+        habort("Error: Hypervisor has rejected stream buffer (file not found)");
         break;
       }
 
