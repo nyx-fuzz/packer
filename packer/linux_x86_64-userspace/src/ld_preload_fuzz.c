@@ -30,6 +30,12 @@
 __attribute__((weak)) extern unsigned int __afl_final_loc;
 unsigned int* __afl_final_loc_ptr = &__afl_final_loc;
 
+__attribute__((weak)) extern uint32_t __afl_dictionary_len;
+uint32_t* __afl_dictionary_len_ptr = &__afl_dictionary_len;
+
+__attribute__((weak)) extern uint8_t* __afl_dictionary;
+uint8_t** __afl_dictionary_ptr = &__afl_dictionary;
+
 size_t input_buffer_size = 0;
 bool fuzz_process = false;
 
@@ -358,6 +364,10 @@ static void setup_interpreter(void* payload_buffer) {
 
 int _mlock(void* dst, size_t size) {
     return syscall(SYS_mlock, dst, size);
+}
+
+int _munlock(void* dst, size_t size) {
+    return syscall(SYS_munlock, dst, size);
 }
 
 int _mlockall(int flags){
@@ -700,6 +710,22 @@ int clearenv(void){
     }
 }
 
+static void check_afl_auto_dict(){
+
+    /* copy AFL autodict over to host */
+    if (__afl_dictionary_len_ptr && __afl_dictionary_ptr){
+        if (__afl_dictionary_len && __afl_dictionary){
+            _mlock((void*)__afl_dictionary, (size_t)__afl_dictionary_len);
+            kafl_dump_file_t file_obj = {0};
+            file_obj.file_name_str_ptr = (uintptr_t)"afl_autodict.txt";
+            file_obj.append = 1;
+            file_obj.bytes = __afl_dictionary_len;
+            file_obj.data_ptr = (uintptr_t)__afl_dictionary;
+            kAFL_hypercall(HYPERCALL_KAFL_DUMP_FILE, (uintptr_t) (&file_obj));
+            _munlock((void*)__afl_dictionary, (size_t)__afl_dictionary_len);
+        }
+    }
+}
 
 void nyx_init_start(void){
 
@@ -715,6 +741,7 @@ void nyx_init_start(void){
     already_called = true;
 
     dump_mappings();
+    check_afl_auto_dict();
 
     hprintf("[init] target is an ASAN executable: %d\n", get_harness_state()->asan_executable);
 
