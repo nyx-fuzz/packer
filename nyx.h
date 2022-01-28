@@ -342,7 +342,7 @@ enum nyx_cpu_type{
 	 
 static int is_nyx_vcpu(void){
   unsigned long eax,ebx,ecx,edx;
-  char str[8];
+  char str[16];
   cpuid(0x80000004,eax,ebx,ecx,edx);	
 
   for(int j=0;j<4;j++){
@@ -355,7 +355,7 @@ static int is_nyx_vcpu(void){
 
 static int get_nyx_cpu_type(void){
 	unsigned long eax,ebx,ecx,edx;
-  char str[8];
+  char str[16];
   cpuid(0x80000004,eax,ebx,ecx,edx);	
 
   for(int j=0;j<4;j++){
