@@ -303,7 +303,8 @@ typedef struct host_config_s{
   uint32_t host_version;
   uint32_t bitmap_size;
   uint32_t ijon_bitmap_size;
-uint32_t payload_buffer_size;
+  uint32_t payload_buffer_size;
+  uint32_t worker_id;
   /* more to come */
 } __attribute__((packed)) host_config_t;
 
