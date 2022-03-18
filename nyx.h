@@ -136,8 +136,9 @@ typedef struct{
 	do{ \
 	asm volatile( \
 		"outl %%eax, %%dx;" \
-	: "=a" (_eax) \
-	: "a" (_eax), "b" (_ebx), "c" (_ecx), "d" (VMWARE_PORT) \
+	: "+a" (_eax) \
+	: "b" (_ebx), "c" (_ecx), "d" (VMWARE_PORT) \
+	: "cc", "memory" \
 	); \
 	} while(0); \
 	_eax; \
@@ -148,8 +149,9 @@ typedef struct{
 	do{ \
 	asm volatile( \
 		"vmcall;" \
-	: "=a" (_eax) \
-	: "a" (_eax), "b" (_ebx), "c" (_ecx), \
+	: "+a" (_eax) \
+	: "b" (_ebx), "c" (_ecx) \
+	: "cc", "memory" \
 	); \
 	} while(0); \
 	_eax; \
@@ -162,8 +164,9 @@ typedef struct{
 	do{ \
 	asm volatile( \
 		"outl %%eax, %%dx;" \
-	: "=a" (_rax) \
-	: "a" (_rax), "b" (_rbx), "c" (_rcx), "d" (VMWARE_PORT) \
+	: "+a" (_rax) \
+	: "b" (_rbx), "c" (_rcx), "d" (VMWARE_PORT) \
+	: "cc", "memory" \
 	); \
 	} while(0); \
 	_rax; \
@@ -174,8 +177,9 @@ typedef struct{
 	do{ \
 	asm volatile( \
 		"vmcall;" \
-	: "=a" (_rax) \
-	: "a" (_rax),  "b" (_rbx), "c" (_rcx),\
+	: "+a" (_rax) \
+	: "b" (_rbx), "c" (_rcx) \
+	: "cc", "memory" \
 	); \
 	} while(0); \
 	_rax; \
