@@ -268,9 +268,9 @@ class PackerConfiguration:
         modes_help = 'afl\t\t - pack target for an AFL-like fuzzer (such as AFL++, kAFL, Nautilus)\n' \
                      'spec\t\t - pack target for a spec fuzzer (such as Nyx\'s spec-fuzzer)\n'
 
-        coverage_modes = ["instrumentation", "process_trace"]
+        coverage_modes = ["instrumentation", "processor_trace"]
         coverage_modes_help = 'instrumentation\t - use compile-time instrumentation (target has to be compiled with an proper compiler)\n' \
-                     'process_trace\t - enable Intel-PT tracing (requires KVM-Nyx)\n'
+                     'processor_trace\t - enable Intel-PT tracing (requires KVM-Nyx)\n'
 
         parser = ArgsParser(formatter_class=argparse.RawTextHelpFormatter)
         parser.set_banner_text("Nyx Share Dir Packer")

@@ -180,7 +180,7 @@ def compile(config):
     
     if config.argument_values["coverage"] == "instrumentation":
         COVERAGE_MODE = True
-    elif config.argument_values["coverage"] == "process_trace":
+    elif config.argument_values["coverage"] == "processor_trace":
         COVERAGE_MODE = False
     else:
         raise Exception("Unkown mode: %s"%(config.argument_values["Coverage"]))

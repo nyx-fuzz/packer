@@ -4,7 +4,7 @@
 <img align="right" width="200"  src="logo.png">
 </p>
 
-This repository contains the image packer for nyx vms. It is used to perform a variety of tasks that create a functioning sharedir (which contains all bundled data needed to spawn and run a VM). This includes agent (and if needed target binaries), various scripts running in the VM, config files (which links the kernel or disc image), seeds etc.  
+This repository contains the image packer for nyx VMs. It is used to perform a variety of tasks that create a functioning Nyx sharedir (which contains all bundled data needed to spawn and run a VM). This includes agent (and if needed target binaries), various scripts running in the VM, config files (which links the kernel or disc image), seeds etc.  
 
 ## Bug Reports and Contributions
 
@@ -12,7 +12,9 @@ Should you find a bug in this tool and need help fixing it, please make sure tha
 
 ### License
 
-This tool is provided under **AGPL license**. 
+This tool is provided under **GPLv2 license**, except for the `nyx.h` file, which is separately licensed under the **MIT license**. 
+All busybox executables and the Linux kernel image (located in `./linux_initramfs`) were built from code licensed under the GNU General Public License version 2 (GPLv2).
+
 
 **Free Software Hell Yeah!** 
 

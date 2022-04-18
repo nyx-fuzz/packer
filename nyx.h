@@ -1,22 +1,22 @@
 /*
-
-Copyright (C) 2018-2021 Sergej Schumilo
-
 This file is part of NYX.
 
-QEMU-PT is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or
-(at your option) any later version.
-
-QEMU-PT is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
-
+Copyright (c) 2021 Sergej Schumilo
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 */
 #ifndef KAFL_USER_H
 #define KAFL_USER_H
@@ -88,7 +88,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #define HYPERCALL_KAFL_PANIC_EXTENDED		32
 
 #define HYPERCALL_KAFL_CREATE_TMP_SNAPSHOT 33
-#define HYPERCALL_KAFL_DEBUG_TMP_SNAPSHOT 34 /* hypercall for debugging / development purposes */
+#define HYPERCALL_KAFL_DEBUG 34 /* hypercall for debugging / development purposes */
 
 #define HYPERCALL_KAFL_GET_HOST_CONFIG 35
 #define HYPERCALL_KAFL_SET_AGENT_CONFIG 36
@@ -292,45 +292,6 @@ static void habort(char* msg){
 	kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)msg);
 }
 
-#define NYX_HOST_MAGIC  0x4878794e
-#define NYX_AGENT_MAGIC 0x4178794e
-
-#define NYX_HOST_VERSION 1 
-#define NYX_AGENT_VERSION 1
-
-typedef struct host_config_s{
-  uint32_t host_magic;
-  uint32_t host_version;
-  uint32_t bitmap_size;
-  uint32_t ijon_bitmap_size;
-uint32_t payload_buffer_size;
-  /* more to come */
-} __attribute__((packed)) host_config_t;
-
-typedef struct agent_config_s{
-	uint32_t agent_magic;
-	uint32_t agent_version;
-	uint8_t agent_timeout_detection;
-	uint8_t agent_tracing;
-	uint8_t agent_ijon_tracing;
-	uint8_t agent_non_reload_mode;
-	uint64_t trace_buffer_vaddr;
-	uint64_t ijon_trace_buffer_vaddr;
-	uint32_t coverage_bitmap_size;
-	uint32_t input_buffer_size;		// TODO: remove this later
-
-  	uint8_t dump_payloads; /* set by hypervisor */
-  /* more to come */
-} __attribute__((packed)) agent_config_t;
-
-typedef struct kafl_dump_file_s{
-  uint64_t file_name_str_ptr;
-  uint64_t data_ptr;
-  uint64_t bytes;
-  uint8_t append;
-} __attribute__((packed)) kafl_dump_file_t;
-
-
 enum nyx_cpu_type{
 	unkown = 0, 
 	nyx_cpu_v1,	/* Nyx CPU used by KVM-PT */
@@ -382,10 +343,74 @@ static int get_nyx_cpu_type(void){
 	printf("ECX: %s\n", str);
 }
 
+/* HYPERCALL_KAFL_DUMP_FILE */
+
+typedef struct kafl_dump_file_s{
+  uint64_t file_name_str_ptr;
+  uint64_t data_ptr;
+  uint64_t bytes;
+  uint8_t append;
+} __attribute__((packed)) kafl_dump_file_t;
+
+/* HYPERCALL_KAFL_GET_HOST_CONFIG */
+
+#define NYX_HOST_MAGIC  0x4878794e
+#define NYX_HOST_VERSION 2 
+
+typedef struct host_config_s{
+	uint32_t host_magic;
+	uint32_t host_version;
+	uint32_t bitmap_size;
+	uint32_t ijon_bitmap_size;
+	uint32_t payload_buffer_size;
+	uint32_t worker_id;
+	/* more to come */
+} __attribute__((packed)) host_config_t;
+
+/* HYPERCALL_KAFL_SET_AGENT_CONFIG */
+
+#define NYX_AGENT_MAGIC 0x4178794e
+#define NYX_AGENT_VERSION 2
+
+typedef struct agent_config_s{
+	uint32_t agent_magic;
+	uint32_t agent_version;
+	uint8_t agent_timeout_detection;
+	uint8_t agent_tracing;
+	uint8_t agent_ijon_tracing;
+	uint8_t agent_non_reload_mode;
+	uint64_t trace_buffer_vaddr;
+	uint64_t ijon_trace_buffer_vaddr;
+	uint32_t coverage_bitmap_size;
+	uint32_t input_buffer_size;		// TODO: remove this later
+
+	uint64_t pt_cr3_mode_value;		/* either an offset or an absolute address */
+	uint8_t pt_cr3_mode;
+
+  	uint8_t dump_payloads; /* set by hypervisor */
+  /* more to come */
+} __attribute__((packed)) agent_config_t;
+
+/* HYPERCALL_KAFL_REQ_STREAM_DATA & HYPERCALL_KAFL_REQ_STREAM_DATA_BULK struct */
+
 typedef struct req_data_bulk_s{
 	char file_name[256];
 	uint64_t num_addresses;
 	uint64_t addresses[479];
 } req_data_bulk_t;
+
+/* HYPERCALL_KAFL_DEBUG struct */
+typedef struct nyx_debug_s{
+	uint64_t arg0;
+	uint64_t arg1;
+	uint64_t arg2;
+	uint64_t arg3;
+} nyx_debug_t;
+
+enum nyx_cr3_mode { 
+    cr3_current,			/* current cr3 value */
+	cr3_current_offset,		/* current cr3 + offset set in pt_cr3_mode_value */
+	cr3_absolute,			/* absolute cr3 value set in pt_cr3_mode_value */
+};
 
 #endif
