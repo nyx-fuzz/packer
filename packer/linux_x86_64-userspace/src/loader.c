@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 bool pt_mode = true;
 
@@ -74,7 +75,7 @@ bool download_file(const char* filename, const char* dst){
 
     } while(bytes);
 
-    printf("%ld bytes received from hypervisor! (%s)\n", total, filename);
+    printf("%"PRIu64" bytes received from hypervisor! (%s)\n", total, filename);
 
     if(f){
       fclose(f);
@@ -87,6 +88,7 @@ int main(int argc, char** argv){
 
 	uint64_t panic_handler = 0x0;
 	uint64_t kasan_handler = 0x0;
+	int ignored;
 
   if(!is_nyx_vcpu()){
     printf("Error: NYX vCPU not found!\n");
@@ -96,11 +98,11 @@ int main(int argc, char** argv){
     
 
     panic_handler = get_address("T panic\n");
-    printf("Kernel Panic Handler Address:\t%lx\n", panic_handler);
+    printf("Kernel Panic Handler Address:\t%"PRIu64"\n", panic_handler);
 
     kasan_handler = get_address("t kasan_report_error\n");
     if (kasan_handler){
-      printf("Kernel KASAN Handler Address:\t%lx\n", kasan_handler);
+      printf("Kernel KASAN Handler Address:\t%"PRIu64"\n", kasan_handler);
     }
 
     /* check if we're running on an KVM-PT host or vanilla kernel first */
@@ -149,8 +151,8 @@ int main(int argc, char** argv){
       perform_hypercall(HYPERCALL_KAFL_SUBMIT_KASAN, kasan_handler);
     }
 
-    system("chmod +x fuzz.sh");
-    system("./fuzz.sh");
+    ignored = system("chmod +x fuzz.sh");
+    ignored = system("./fuzz.sh");
     while(true){}
   }
   printf("Usage: <loader>\n");
