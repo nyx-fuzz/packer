@@ -985,10 +985,10 @@ void nyx_init_start(void){
 #ifndef NET_FUZZ
 #ifdef LEGACY_MODE
             if(stdin_mode){
-                pipe(pipefd);
+                ret = pipe(pipefd);
             }
             else{
-                fd = open(output_filename, O_RDWR | O_CREAT | O_TRUNC);
+                fd = open(output_filename, O_RDWR | O_CREAT | O_TRUNC, O_RDWR);
             }
 #endif
             //mlockall(MCL_CURRENT); // | MCL_FUTURE);
