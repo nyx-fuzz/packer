@@ -153,15 +153,18 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 void handle_asan(void){
     char* log_file_path = NULL;
     char* log_content = NULL;
+    int ignored;
 
-    asprintf(&log_file_path, "/tmp/data.log.%d", getpid());
+    if(-1 == asprintf(&log_file_path, "/tmp/data.log.%d", getpid())) {
+        kAFL_hypercall(HYPERCALL_KAFL_PANIC, 0);
+    }
 
     FILE* f = fopen(log_file_path, "r");
 
     if(f){
         log_content = malloc(0x1000);
         memset(log_content, 0x00, 0x1000);
-        fread(log_content, 0x1000-1, 1, f);
+        ignored = fread(log_content, 0x1000-1, 1, f);
         fclose(f);
         printf("%s\n", log_content);
 
@@ -211,6 +214,7 @@ void __assert_perror_fail (int __errnum, const char *__file, unsigned int __line
 void kafl_backtrace(int signal){
 
     int fd[2];
+    int ignored;
 
     char tmp[512];
     void *buffer[BT_BUF_SIZE];
@@ -220,7 +224,7 @@ void kafl_backtrace(int signal){
 
     int bytes_read = 0;
 
-    pipe(fd);
+    ignored = pipe(fd);
 
     nptrs = backtrace(buffer, BT_BUF_SIZE);
     //hprintf("backtrace() returned %d addresses\n", nptrs);
