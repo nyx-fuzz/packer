@@ -7,6 +7,7 @@
 
 int main(int argc, char** argv){
   char* error_message = NULL;
+  int ret;
 
   if(!is_nyx_vcpu()){
     printf("Error: NYX vCPU not found!\n");
@@ -19,12 +20,12 @@ int main(int argc, char** argv){
   }
 
   if (argc == 2){
-    asprintf(&error_message, "USER_ABORT called: %s", argv[1]);
-    kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)error_message);
+    ret = asprintf(&error_message, "USER_ABORT called: %s", argv[1]);
+    if (ret != -1) {
+      kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)error_message);
+      return 0;
+    }
   }
-  else{
-    kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)"USER_ABORT called!");
-  }
-
+  kAFL_hypercall(HYPERCALL_KAFL_USER_ABORT, (uintptr_t)"USER_ABORT called!");
   return 0;
 }
