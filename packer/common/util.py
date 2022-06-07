@@ -40,7 +40,9 @@ class Singleton(type):
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super(
+                Singleton, cls).__call__(
+                *args, **kwargs)
         return cls._instances[cls]
 
 
@@ -79,8 +81,16 @@ def find_diffs(data_a, data_b):
 
 
 def prepare_working_dir(directory_path):
-    folders = ["/corpus/regular", "/metadata", "/corpus/crash", "/corpus/kasan", "/corpus/timeout", "/bitmaps",
-               "/imports", "/snapshot", '/forced_imports']
+    folders = [
+        "/corpus/regular",
+        "/metadata",
+        "/corpus/crash",
+        "/corpus/kasan",
+        "/corpus/timeout",
+        "/bitmaps",
+        "/imports",
+        "/snapshot",
+        '/forced_imports']
 
     project_name = directory_path.split("/")[-1]
 
@@ -95,10 +105,10 @@ def prepare_working_dir(directory_path):
     for folder in folders:
         os.makedirs(directory_path + folder)
 
-    open(directory_path+"/filter", "wb").close()
-    open(directory_path+"/page_cache.lock", "wb").close()
-    open(directory_path+"/page_cache.dump", "wb").close()
-    open(directory_path+"/page_cache.addr", "wb").close()
+    open(directory_path + "/filter", "wb").close()
+    open(directory_path + "/page_cache.lock", "wb").close()
+    open(directory_path + "/page_cache.dump", "wb").close()
+    open(directory_path + "/page_cache.addr", "wb").close()
 
 
 def copy_seed_files(working_directory, seed_directory):
@@ -113,7 +123,12 @@ def copy_seed_files(working_directory, seed_directory):
         for f in files:
             path = os.path.join(directory, f)
             if os.path.exists(path):
-                atomic_write(working_directory + "/forced_imports/" + "seed_%05d" % i, read_binary_file(path))
+                atomic_write(
+                    working_directory +
+                    "/forced_imports/" +
+                    "seed_%05d" %
+                    i,
+                    read_binary_file(path))
                 #copyfile(path, working_directory + "/imports/" + "seed_%05d" % i)
                 i += 1
 
@@ -139,11 +154,24 @@ def print_pre_exit_msg(num_dots, clrscr=False):
 
     if clrscr:
         print('\x1b[2J')
-    print('\x1b[1;1H' + '\x1b[1;1H' + '\033[0;33m' + "[*] Terminating Slaves" + dots + '\033[0m' + "\n")
+    print(
+        '\x1b[1;1H' +
+        '\x1b[1;1H' +
+        '\033[0;33m' +
+        "[*] Terminating Slaves" +
+        dots +
+        '\033[0m' +
+        "\n")
 
 
 def print_exit_msg():
-    print('\x1b[2J' + '\x1b[1;1H' + '\033[92m' + "[!] Data saved! Bye!" + '\033[0m' + "\n")
+    print(
+        '\x1b[2J' +
+        '\x1b[1;1H' +
+        '\033[92m' +
+        "[!] Data saved! Bye!" +
+        '\033[0m' +
+        "\n")
 
 
 def is_float(value):
@@ -203,7 +231,11 @@ def execute(cmd, cwd, print_output=True, print_cmd=False):
     if print_cmd:
         print(OKBLUE + "\t  " + "Executing: " + " ".join(cmd) + ENDC)
 
-    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
     if print_output:
         while True:
             output = proc.stdout.readline()
@@ -214,11 +246,18 @@ def execute(cmd, cwd, print_output=True, print_cmd=False):
         while True:
             output = proc.stderr.readline()
             if output:
-                print(FAIL + output.decode("utf-8")  + ENDC),
+                print(FAIL + output.decode("utf-8") + ENDC),
             else:
                 break
     if proc.wait() != 0:
         print(FAIL + "Error while executing " + " ".join(cmd) + ENDC)
 
+
 def to_real_path(relative_path):
-    return os.path.realpath(os.path.dirname(os.path.realpath(__file__ + "/../")) + "/" + relative_path)
+    return os.path.realpath(
+        os.path.dirname(
+            os.path.realpath(
+                __file__ +
+                "/../")) +
+        "/" +
+        relative_path)
