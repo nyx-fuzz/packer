@@ -27,13 +27,17 @@ __author__ = 'sergej'
 
 
 def hexdump(src, length=16):
-    hexdump_filter = ''.join([(len(repr(chr(x))) == 3) and chr(x) or '.' for x in range(256)])
+    hexdump_filter = ''.join(
+        [(len(repr(chr(x))) == 3) and chr(x) or '.' for x in range(256)])
     lines = []
     for c in xrange(0, len(src), length):
         chars = src[c:c + length]
         hex_value = ' '.join(["%02x" % ord(x) for x in chars])
-        printable = ''.join(["%s" % ((ord(x) <= 127 and hexdump_filter[ord(x)]) or '.') for x in chars])
-        lines.append("%04x  %-*s  %s\n" % (c, length * 3, hex_value, printable))
+        printable = ''.join(
+            ["%s" % ((ord(x) <= 127 and hexdump_filter[ord(x)]) or '.') for x in chars])
+        lines.append(
+            "%04x  %-*s  %s\n" %
+            (c, length * 3, hex_value, printable))
     return ''.join(lines)
 
 
@@ -66,12 +70,21 @@ def logger(msg):
         if (len(shared_list) >= 9):
             shared_list.pop(0)
         shared_list.append(msg.replace("\n", " "))
-    except:
+    except BaseException:
         pass
     if logging_is_enabled:
         if not output_file:
             __init_logger()
-        output_file.write("[" + str(timedelta(seconds=time.time() - init_time)) + "] " + log_prefix + msg + "\n")
+        output_file.write(
+            "[" +
+            str(
+                timedelta(
+                    seconds=time.time() -
+                    init_time)) +
+            "] " +
+            log_prefix +
+            msg +
+            "\n")
         output_file.flush()
 
 
@@ -79,7 +92,7 @@ def get_rbuf_content():
     global shared_list
     try:
         return list(shared_list)
-    except:
+    except BaseException:
         return None
 
 
@@ -96,10 +109,12 @@ def log_master(msg):
 def log_mapserver(msg):
     logger("[MAPSERV]       " + msg)
 
+
 def log_grimoire(msg):
     #from common.safe_syscall import safe_print
-    #safe_print(msg)
+    # safe_print(msg)
     logger("[GI]          " + msg)
+
 
 def log_update(msg):
     logger("[UPDATE]        " + msg)

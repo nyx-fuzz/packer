@@ -3,11 +3,13 @@ from spec_lib.data_spec import *
 
 import string
 
+
 class BuilderValue:
     def __init__(self, value_type, id):
         self.value_type = value_type
         self.id = id
-        self.unused=True
+        self.unused = True
+
 
 class Builder:
     def __init__(self, spec):
@@ -23,21 +25,21 @@ class Builder:
     def build_node(self, name, *args):
         node = self.spec.name_to_node[name]
         if node.data:
-            assert(len(args) == len(node.inputs)+len(node.borrows)+1)
+            assert(len(args) == len(node.inputs) + len(node.borrows) + 1)
         else:
-            assert(len(args) == len(node.inputs)+len(node.borrows))
+            assert(len(args) == len(node.inputs) + len(node.borrows))
         self.ops.append(node.id)
-        for (i,val) in enumerate(node.inputs):
+        for (i, val) in enumerate(node.inputs):
             assert(args[i].value_type == val)
             assert(args[i].unused)
             self.ops.append(args[i].id)
-            args[i].unused=False
+            args[i].unused = False
         for(i, val) in enumerate(node.borrows):
-            j = len(node.inputs)+i
+            j = len(node.inputs) + i
             assert(args[j].value_type == val)
             assert(args[j].unused)
             self.ops.append(args[j].id)
-        
+
         if node.data:
             self.build_data(node.data, args[-1])
 
@@ -50,26 +52,31 @@ class Builder:
             return res[0]
         return res
 
-    def build_data(self,dat,val):
+    def build_data(self, dat, val):
         self.data += dat.build_from_val(val)
 
     def build_value(self, val):
         if val not in self.value_to_id:
             self.value_to_id[val] = 0
         vid = self.value_to_id[val]
-        self.value_to_id[val]+=1
+        self.value_to_id[val] += 1
         return BuilderValue(val, vid)
 
     def write_to_file(self, path):
         graph_size = len(self.ops)
         data_size = len(self.data)
-        base = 5*8
+        base = 5 * 8
         graph_offset = base
-        data_offset = graph_offset+2*graph_size
-        header = struct.pack("<QQQQQ", self.spec.get_checksum(), graph_size, data_size, graph_offset, data_offset)
-        graph_data = struct.pack("<"+"H"*len(self.ops),*self.ops)
-        with open(path,"wb") as f:
+        data_offset = graph_offset + 2 * graph_size
+        header = struct.pack(
+            "<QQQQQ",
+            self.spec.get_checksum(),
+            graph_size,
+            data_size,
+            graph_offset,
+            data_offset)
+        graph_data = struct.pack("<" + "H" * len(self.ops), *self.ops)
+        with open(path, "wb") as f:
             f.write(header)
             f.write(graph_data)
             f.write(self.data)
-
