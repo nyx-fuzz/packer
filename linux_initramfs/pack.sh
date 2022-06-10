@@ -30,6 +30,25 @@ cd - || exit
 cp ../packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
 
 # copy lib $arg1 listed in `ldconfig -p` to dir `rootTemplate`
+copy_dyn_lib(){
+	prog_name=$1
+	# grep: get dyn dependency
+	# sed: remove string's left part splited by "=>"
+	# awk: get the first part of output(lib's absolute path)
+	lib_paths=$(ldd $prog_name | grep "=>" | sed -E "s/^.*=> //" | awk '{print $1}')
+
+	for lib_path in $lib_paths; do
+	target_path="rootTemplate$lib_path"
+	target_dir=$(dirname "$target_path")
+	if [ ! -d "$target_dir" ] ; then
+		mkdir -pv "$target_dir"
+	fi
+	if [ ! -c "$target_path" ] ; then
+		cp -L "$lib_path" "$target_path"
+	fi	
+	done
+}
+
 copy_lib(){
 	lib_name=$1
 	# grep: get dependency of lib; sed: remove string's left part splited by "=>"
@@ -47,13 +66,38 @@ copy_lib(){
 	fi
 		cp -Lv "$lib_path" "$target_path"
 	done
+
 }
 #cp /home/kafl/nyx_fuzzer_snapshot/snapshot_toy_examples/packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
 chmod +x rootTemplate/loader
-mkdir rootTemplate/lib/
-mkdir rootTemplate/lib64/
+mkdir rootTemplate/usr/lib/
+mkdir rootTemplate/usr/lib64/
+mkdir rootTemplate/usr/lib32/
 mkdir rootTemplate/lib/i386-linux-gnu/
 mkdir rootTemplate/lib/x86_64-linux-gnu/
+
+#create symbol link for lib
+cd ./rootTemplate
+ln -s usr/lib   lib
+ln -s usr/lib64 lib64
+ln -s usr/lib32 lib32
+cd -
+
+# compile esstential tools
+echo "compiling esstential tools"
+cd ../packer/linux_x86_64-userspace/
+sh compile_32.sh 1> /dev/null || exit 1
+sh compile_64.sh 1> /dev/null || exit 1
+cd -
+
+# copy dyn-link libs for tools
+for prog_name in $(ls -d ../packer/linux_x86_64-userspace/bin32/*) ; do
+	copy_dyn_lib $prog_name
+done
+
+for prog_name in $(ls -d ../packer/linux_x86_64-userspace/bin64/*) ; do
+	copy_dyn_lib $prog_name
+done
 
 copy_lib ld-linux.so.2
 copy_lib ld-linux-x86-64.so.2
@@ -68,7 +112,7 @@ sed '/START/c\./loader' init/init_template > init/init
 chmod 755 "init/init"
 cd "init" || exit
 
-find . -print0 | cpio --null -ov --format=newc  2> /dev/null | gzip -9 > "../init.cpio.gz" 2> /dev/null
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > "../init.cpio.gz"
 cd ../
 rm -r ./init/
 
@@ -78,10 +122,10 @@ sed '/START/c\sh' init/init_template > init/init
 chmod 755 "init/init"
 cd "init" || exit
 
-find . -print0 | cpio --null -ov --format=newc  2> /dev/null | gzip -9 > "../init_debug_shell.cpio.gz"  2> /dev/null
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > "../init_debug_shell.cpio.gz" 
 cd ../
 rm -r ./init/
 
-rm -r rootTemplate/lib/
-rm -r rootTemplate/lib64/
+# rm -r rootTemplate/lib/
+# rm -r rootTemplate/lib64/
 rm rootTemplate/loader
