@@ -29,10 +29,10 @@ sh compile_loader.sh
 cd - || exit
 cp ../packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
 
-# copy lib $arg1 listed in `ldconfig -p` to dir `rootTemplate`
-copy_dyn_lib(){
+# copy all lib listed in `lld $arg1` to dir `rootTemplate`
+copy_lib_by_prog(){
 	prog_name=$1
-	# grep: get dyn dependency
+	# grep: get dyn dependency instead of static lib
 	# sed: remove string's left part splited by "=>"
 	# awk: get the first part of output(lib's absolute path)
 	lib_paths=$(ldd $prog_name | grep "=>" | sed -E "s/^.*=> //" | awk '{print $1}')
@@ -49,7 +49,7 @@ copy_dyn_lib(){
 	done
 }
 
-copy_lib(){
+copy_lib_by_name(){
 	lib_name=$1
 	# grep: get dependency of lib; sed: remove string's left part splited by "=>"
 	lib_paths=$(ldconfig -p | grep -E  "$lib_name \(.*\) => " | sed -E "s/^.*=> //")
@@ -83,7 +83,7 @@ ln -s usr/lib64 lib64
 ln -s usr/lib32 lib32
 cd -
 
-# compile esstential tools
+# compile esstential tools to get correct lib dependency
 echo "compiling esstential tools"
 cd ../packer/linux_x86_64-userspace/
 sh compile_32.sh 1> /dev/null || exit 1
@@ -92,20 +92,20 @@ cd -
 
 # copy dyn-link libs for tools
 for prog_name in $(ls -d ../packer/linux_x86_64-userspace/bin32/*) ; do
-	copy_dyn_lib $prog_name
+	copy_lib_by_prog $prog_name
 done
 
 for prog_name in $(ls -d ../packer/linux_x86_64-userspace/bin64/*) ; do
-	copy_dyn_lib $prog_name
+	copy_lib_by_prog $prog_name
 done
 
-copy_lib ld-linux.so.2
-copy_lib ld-linux-x86-64.so.2
-copy_lib libdl.so.2
-copy_lib libc.so.6
+copy_lib_by_name ld-linux.so.2
+copy_lib_by_name ld-linux-x86-64.so.2
+copy_lib_by_name libdl.so.2
+copy_lib_by_name libc.so.6
 
 # fix nasty nss bugs (getpwnam_r, ...)
-copy_lib libnss_compat.so.2
+copy_lib_by_name libnss_compat.so.2
 
 cp -r "rootTemplate" "init"
 sed '/START/c\./loader' init/init_template > init/init
