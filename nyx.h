@@ -240,7 +240,7 @@ static inline uint8_t alloc_hprintf_buffer(uint8_t** hprintf_buffer){
 #ifdef __MINGW64__
 		*hprintf_buffer = (uint8_t*)VirtualAlloc(0, HPRINTF_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
 #else 
-		*hprintf_buffer = mmap((void*)NULL, HPRINTF_MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		*hprintf_buffer = (uint8_t*)mmap((void*)NULL, HPRINTF_MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
 		if(!*hprintf_buffer){
 			return 0;
@@ -336,7 +336,7 @@ static int is_nyx_vcpu(void){
 
 static int get_nyx_cpu_type(void){
 	unsigned long eax,ebx,ecx,edx;
-  char str[8];
+  char str[9];
   cpuid(0x80000004,eax,ebx,ecx,edx);	
 
   for(int j=0;j<4;j++){
