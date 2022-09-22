@@ -71,7 +71,7 @@ static void add_client_socket(interfaces_t* connection, int socket){
 	DEBUG("%s: %d\n", __func__, socket);
 
 	if(!check_server_socket(connection, socket)){
-		assert(connection->server_sockets_num < 8);
+		assert(connection->client_sockets_num < 8);
 		connection->client_sockets[connection->client_sockets_num] = socket;
 		connection->client_sockets_num++;
 	}
