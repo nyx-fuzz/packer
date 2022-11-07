@@ -260,6 +260,14 @@ int (*hprintf)(const char * format, ...) = printf;
 #else
 static int hprintf(const char * format, ...)  __attribute__ ((unused));
 
+/* sends limited-size formatted text message to fuzz-hypervisor
+ * most likely for logging/printing on a text console
+ * it should be signature-compatible with libc printf,
+ * but be aware - it is not full analogue
+ * in regular print functions it would be detrimental to send more
+ * bytes than return value, but here it would mostly be used
+ * in debugging, so it would be useful to know if your agent has
+ * issues */
 static int hprintf(const char * format, ...)
 {
 	int const err_char_idx = sizeof("_NYX_ERR_");
