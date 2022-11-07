@@ -235,36 +235,59 @@ static inline uint64_t kAFL_hypercall(uint64_t rbx, uint64_t rcx){
 
 //extern uint8_t* hprintf_buffer; 
 
-static inline uint8_t alloc_hprintf_buffer(uint8_t** hprintf_buffer){
-	if(!*hprintf_buffer){
+static inline uint8_t alloc_hprintf_buffer(uint8_t** hprintf_buffer)
+{
+    if (!*hprintf_buffer)
+    {
 #ifdef __MINGW64__
-		*hprintf_buffer = (uint8_t*)VirtualAlloc(0, HPRINTF_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
-#else 
-		*hprintf_buffer = (uint8_t*)mmap((void*)NULL, HPRINTF_MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        *hprintf_buffer = (uint8_t*)VirtualAlloc(0, HPRINTF_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
+        if (NULL == *hprintf_buffer) {
+            return 0;
+        }
+#else
+        *hprintf_buffer = (uint8_t*)mmap((void*)NULL, HPRINTF_MAX_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (MAP_FAILED == *hprintf_buffer) {
+            *hprintf_buffer = NULL;
+            return 0;
+        }
 #endif
-		if(!*hprintf_buffer){
-			return 0;
-		}
-	}
-	return 1; 
+    }
+    return 1;
 }
 
 #ifdef __NOKAFL
 int (*hprintf)(const char * format, ...) = printf;
 #else
-static void hprintf(const char * format, ...)  __attribute__ ((unused));
+static int hprintf(const char * format, ...)  __attribute__ ((unused));
 
-static void hprintf(const char * format, ...){
-	static uint8_t* hprintf_buffer = NULL; 
+static int hprintf(const char * format, ...)
+{
+	int const err_char_idx = sizeof("_NYX_ERR_");
+	static uint8_t error_msg_buffer[] = "_NYX_ERR_\0\0\0\0\0\0\0";
+	static uint8_t* hprintf_buffer = NULL;
+	register int could_be_written = 0;
+
+	if (!alloc_hprintf_buffer(&hprintf_buffer)) {
+		kAFL_hypercall(HYPERCALL_KAFL_PRINTF, (uintptr_t) error_msg_buffer);
+		return -2;
+	}
 
 	va_list args;
 	va_start(args, format);
-	if(alloc_hprintf_buffer(&hprintf_buffer)){
-		vsnprintf((char*)hprintf_buffer, HPRINTF_MAX_SIZE, format, args);
-		kAFL_hypercall(HYPERCALL_KAFL_PRINTF, (uintptr_t)hprintf_buffer);
-	}
-	//vprintf(format, args);
+	could_be_written = vsnprintf((char *) hprintf_buffer, HPRINTF_MAX_SIZE, format, args);
 	va_end(args);
+	if (could_be_written < 0) {
+		error_msg_buffer[err_char_idx] = 'V';
+		kAFL_hypercall(HYPERCALL_KAFL_PRINTF, (uintptr_t) error_msg_buffer);
+		return could_be_written;
+	}
+	kAFL_hypercall(HYPERCALL_KAFL_PRINTF, (uintptr_t) hprintf_buffer);
+	if (could_be_written > HPRINTF_MAX_SIZE) {
+		error_msg_buffer[err_char_idx] = 'O';
+		kAFL_hypercall(HYPERCALL_KAFL_PRINTF, (uintptr_t) error_msg_buffer);
+		return HPRINTF_MAX_SIZE;
+	}
+	return could_be_written;
 }
 #endif
 
