@@ -80,7 +80,7 @@ then
     error_install
   fi
 
-  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -cdrom $3 -k de -vnc :0 -m $MEMORY_SIZE
+  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -cdrom $3 -k de -vnc :8 -m $MEMORY_SIZE
   exit 0
 fi
 
@@ -91,7 +91,7 @@ then
     error_post_install
   fi
 
-  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -k de -vnc :0 -m $MEMORY_SIZE -net user,hostfwd=tcp::2222-:22 -net nic
+  NYX_DISABLE_DIRTY_RING=y NYX_DISABLE_BLOCK_COW=TRUE $QEMU_PT_BIN --enable-kvm -drive format=raw,file=$2 -k de -vnc :8 -m $MEMORY_SIZE -net user,hostfwd=tcp::2222-:22 -net nic
   exit 0
 fi
 
@@ -103,7 +103,7 @@ then
   fi
 
   mkdir $4 && \
-  NYX_DISABLE_DIRTY_RING=y $QEMU_PT_BIN --enable-kvm -hda $2 -k de -vnc :0 -m $3 -net none -machine kAFL64-v1 -cpu kAFL64-Hypervisor-v1 -fast_vm_reload pre_path=$4,load=off
+  NYX_DISABLE_DIRTY_RING=y $QEMU_PT_BIN --enable-kvm -hda $2 -k de -vnc :8 -m $3 -net none -machine kAFL64-v1 -cpu kAFL64-Hypervisor-v1 -fast_vm_reload pre_path=$4,load=off
   exit 0
 fi
 
