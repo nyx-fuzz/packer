@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include <dlfcn.h>
 #include "misc/harness_state.h"
 #include "netfuzz/syscalls.h"
@@ -34,6 +35,13 @@ static bool check_env(const char* env){
     return ret;
 }
 
+static bool validate_ip_addr(const char *ip_addr)
+{
+    struct in_addr ipv4_binary;
+
+    return inet_pton(AF_INET, ip_addr, &ipv4_binary) == 1;
+}
+
 void set_harness_state(void){
     harness_state_t* state = get_harness_state();
 
@@ -53,6 +61,29 @@ void set_harness_state(void){
         state->nyx_net_port = 0;
     }
 
+    if(real_getenv("NYX_NET_CLIENT_IP_ADDR")){
+        char *ip_addr = real_getenv("NYX_NET_CLIENT_IP_ADDR");
+
+        if (!validate_ip_addr(ip_addr))
+        {
+            hprintf("Invalid IPv4 address in NYX_NET_CLIENT_IP_ADDR environment variable.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        strncpy(state->nyx_net_client_ip_addr, ip_addr, INET_ADDRSTRLEN - 1);
+        state->nyx_net_client_ip_addr[INET_ADDRSTRLEN - 1] = '\0'; // Ensure null-termination
+    }
+    else{
+        strcpy(state->nyx_net_client_ip_addr, "127.0.0.1");
+    }
+
+    if(real_getenv("NYX_NET_CLIENT_PORT")){
+        state->nyx_net_client_port = (uint16_t)strtol(real_getenv("NYX_NET_CLIENT_PORT"), NULL, 10);
+    }
+    else{
+        state->nyx_net_client_port = 0;
+    }
+
 #ifdef DEBUG_HARNESS_STATE
     hprintf("fast_exit_mode: %d\n", state->fast_exit_mode);
     hprintf("asan_executable: %d\n", state->asan_executable);
@@ -63,6 +94,7 @@ void set_harness_state(void){
     hprintf("pt_auto_addr_range_a: %d\n", state->pt_auto_addr_range_a);
     hprintf("pt_auto_addr_range_b: %d\n", state->pt_auto_addr_range_b);
     hprintf("NYX_NET_PORT: %d\n", state->nyx_net_port);
+    hprintf("NYX_NET_CLIENT_IP_ADDR: %s\n", state->NYX_NET_CLIENT_IP_ADDR);
 #endif
 
     harness_state_ready = true;

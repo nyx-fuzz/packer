@@ -186,6 +186,8 @@ def compile(config):
     UDP_MODE = config.argument_values["nyx_net_udp"]
     CLIENT_MODE = config.argument_values["nyx_net_client_mode"]
     REAL_NETWORK_MODE = config.argument_values["nyx_net_real_network_mode"]
+    NET_FUZZ_CLIENT_IP = config.argument_values["nyx_net_client_ip"]
+    NET_FUZZ_CLIENT_PORT = config.argument_values["nyx_net_client_port"]
     RECOMPILE_SPEC = config.argument_values["recompile_spec"]
     DEBUG_MODE = config.argument_values["nyx_net_debug_mode"]
     STDOUT_STDERR_DEBUG = config.argument_values["debug_stdin_stderr"]
@@ -399,6 +401,10 @@ def compile(config):
         download_script += "NYX_NET_FUZZ_MODE=ON "
     if NET_FUZZ_PORT:
         download_script += "NYX_NET_PORT=%s "%(NET_FUZZ_PORT)
+    if NET_FUZZ_CLIENT_IP:
+        download_script += "NYX_NET_CLIENT_IP_ADDR=%s "%(NET_FUZZ_CLIENT_IP)
+    if NET_FUZZ_CLIENT_PORT:
+        download_script += "NYX_NET_CLIENT_PORT=%s "%(NET_FUZZ_CLIENT_PORT)
     if LEGACY_FILE_MODE:
         download_script += "NYX_LEGACY_FILE_MODE=%s "%(config.argument_values["file"])
     if not DISABLE_PT_RANGE_A:
