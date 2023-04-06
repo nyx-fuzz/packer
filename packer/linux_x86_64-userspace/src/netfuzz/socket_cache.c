@@ -1,14 +1,31 @@
+#define _GNU_SOURCE
+#include <errno.h>
+#include <sched.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <pthread.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <assert.h>
 #include "socket_cache.h"
 #include "nyx.h"
+#include "syscalls.h"
 
 #ifdef DEBUG_MODE
 #define DEBUG(f_, ...) hprintf((f_), ##__VA_ARGS__)
 #else
 #define DEBUG(f_, ...) 
 #endif
+
+//FIXME: use harness_state() to get namespace name
+#define NNS_NAME "nspce"
 
 typedef struct interfaces_s {
 	int server_sockets[8];
@@ -25,6 +42,11 @@ typedef struct interfaces_s {
 
 } interfaces_t;
 
+typedef struct thread_args_s {
+	struct sockaddr_in client;
+	struct sockaddr_in server;
+} thread_args_t;
+
 #define MAX_CONNECTIONS 16
 
 uint8_t active_connections = 0;
@@ -33,6 +55,9 @@ uint8_t active_con_num = 0;
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //TODO: add 8 mutexes?
 pthread_cond_t server_ready = PTHREAD_COND_INITIALIZER;
+bool server_ready_flag = false;
+char *client_thread_data_to_send;
+size_t client_thread_data_to_send_len;
 
 /* TODO: make this code thread safe */
 
@@ -233,6 +258,126 @@ bool set_client_socket_to_connection(uint16_t port, int socket){
 	} 
 	pthread_mutex_unlock(&lock);
 	return false;
+}
+
+static pthread_t get_thread_id_from_connection(uint16_t port){
+	pthread_mutex_lock(&lock);
+	pthread_t thread_id;
+
+	for(uint8_t i = 0; i < active_connections; i++){
+		if(connections[i].disabled == true){
+			continue;
+		}
+		if(connections[i].port == port){
+			thread_id = connections[i].client_thread;
+			pthread_mutex_unlock(&lock);
+			return thread_id;
+		}
+	}
+	pthread_mutex_unlock(&lock);
+	return -1;
+}
+
+static void move_thread_to_netns() {
+	hprintf("%s: ", __func__);
+	const char *netns_path_fmt = "/var/run/netns/%s";
+	char netns_path[272]; /* 15 for "/var/.." + 256 for netns name + 1 '\0' */
+	int netns_fd;
+
+	if (strlen(NNS_NAME) > 256)
+		hprintf("Network namespace name \"%s\" is too long\n", NNS_NAME);
+
+	sprintf(netns_path, netns_path_fmt, NNS_NAME);
+
+	netns_fd = open(netns_path, O_RDONLY);
+	if (netns_fd == -1)
+		hprintf("Unable to open %s\n", netns_path);
+
+	if (setns(netns_fd, CLONE_NEWNET) == -1)
+		hprintf("setns failed: %s\n", strerror(errno));
+	hprintf("done\n");
+}
+
+void *client_thread_func(void *data)
+{
+	move_thread_to_netns();
+	thread_args_t *args = (thread_args_t *)data;
+	struct sockaddr_in server = args->server;
+	struct sockaddr_in client = args->client;
+	int socket_desc;
+
+	hprintf("%s: create socket...\n", __func__);
+
+	socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+	if (socket_desc == -1)
+	{
+		hprintf("socket error: %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	if (real_bind(socket_desc, (struct sockaddr *)&client, sizeof(client)) < 0)
+	{
+		hprintf("bind error: %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	//Connect to remote server
+	hprintf("%s: connect to socket...\n", __func__);
+	hprintf("%s: server port is %d\n", __func__, ntohs(server.sin_port));
+	if (real_connect(socket_desc, (struct sockaddr *)&server, sizeof(server)) < 0)
+	{
+		hprintf("connect error: %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	assert(set_client_socket_to_connection(ntohs(server.sin_port), socket_desc));
+
+	free(data);
+
+	hprintf("%s: Connected. Handshake is done. Locking and waiting now\n", __func__);
+
+	while (1) {
+		pthread_mutex_lock(&lock);
+
+		while (!server_ready_flag)
+			pthread_cond_wait(&server_ready, &lock);
+
+		real_write(socket_desc, client_thread_data_to_send, client_thread_data_to_send_len);
+
+		server_ready_flag = false;
+		pthread_mutex_unlock(&lock);
+	}
+
+	return NULL;
+}
+
+void send_malformed_data(char *data, size_t len)
+{
+	pthread_mutex_lock(&lock);
+	client_thread_data_to_send = data;
+	client_thread_data_to_send_len = len;
+	server_ready_flag = true;
+	pthread_mutex_unlock(&lock);
+
+	pthread_cond_signal(&server_ready);
+}
+
+void create_client(struct sockaddr_in *server, struct sockaddr_in *client)
+{
+	DEBUG("%s: server ip: %s, server port: %d\n", __func__,
+		inet_ntoa(server->sin_addr), ntohs(server->sin_port));
+	DEBUG("%s: client ip: %s, client port: %d\n", __func__,
+		inet_ntoa(client->sin_addr), ntohs(client->sin_port));
+
+	thread_args_t *args = malloc(sizeof(thread_args_t));
+
+	memcpy(&args->server, server, sizeof(struct sockaddr_in));
+	memcpy(&args->client, client, sizeof(struct sockaddr_in));
+
+	pthread_t thread_id =
+		get_thread_id_from_connection(ntohs(server->sin_port));
+
+	pthread_create(&thread_id, NULL, client_thread_func, args);
 }
 
 /* ok */

@@ -344,11 +344,23 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags){
 	//int client_socket = server_socket_to_client_socket(sockfd);
 	//if(client_socket != -1){
 	DEBUG("%s --> %d\n", __func__, sockfd);
+#ifdef REAL_NETWORK_MODE
+	char buff_for_send[8200] = {0};
+#endif
 
 	if(server_socket_exists(sockfd)){
 #ifndef NET_STANDALONE
 		init_nyx();
+#ifdef REAL_NETWORK_MODE
+		size_t data_len = handle_next_packet(sockfd, buff_for_send, len, false);
+
+		//notify client thread
+		send_malformed_data(buff_for_send, data_len);
+
+		return real_recv(sockfd, buf, len, flags);
+#else
 		return handle_next_packet(sockfd, buf, len, false);
+#endif
 #endif
 
 		//hprintf("%s: not implemented\n", __func__);
@@ -595,6 +607,7 @@ int close(int fd){
 		/* broken ? */
 		if(get_active_connections() == 0){
 			DEBUG("RELEASE!\n");
+			real_close(fd);
 			//while(1){}
 			//	
 			//}
@@ -748,6 +761,17 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen){
 	return accept4(sockfd, addr, addrlen, 0);
 }
 
+static void get_client_sockaddr(struct sockaddr_in *addr)
+{
+	addr->sin_family = AF_INET;
+	addr->sin_port = htons(get_harness_state()->nyx_net_client_port);
+	if (inet_pton(AF_INET, get_harness_state()->nyx_net_client_ip_addr, &addr->sin_addr) < 0)
+	{
+		hprintf("inet_pton failed: %s\n", strerror(errno));
+		exit(-1);
+	}
+}
+
 #ifdef UDP_MODE
 #ifndef CLIENT_MODE
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen){
@@ -821,30 +845,36 @@ int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen){
 #ifndef CLIENT_MODE
 
 int listen(int sockfd, int backlog){
-	struct sockaddr_in addr;
+	struct sockaddr_in server_addr;
 	int len = sizeof(struct sockaddr);
 
 	//hprintf("=== %s\n", __func__);
 
 	int ret = -1;
 
-	if(getsockname(sockfd, (struct sockaddr *) &addr, (void*)&len) != -1){
+	if(getsockname(sockfd, (struct sockaddr *) &server_addr, (void*)&len) != -1){
 
-		bool exists = connection_exists(ntohs(addr.sin_port));
+		bool exists = connection_exists(ntohs(server_addr.sin_port));
 
 		if(!exists){
-			DEBUG("%s: port number %d\n", __func__, ntohs(addr.sin_port));
+			DEBUG("%s: port number %d\n", __func__, ntohs(server_addr.sin_port));
 		}
 
 		ret = real_listen(sockfd, backlog);
 		
 		if(!exists){
-				if(is_target_port(ntohs(addr.sin_port))){ 
-					add_connection(ntohs(addr.sin_port));
-					connect_to_server(&addr);
-					DEBUG("%s: DONE \n", __func__);
+			if(is_target_port(ntohs(server_addr.sin_port))){
+				add_connection(ntohs(server_addr.sin_port));
 
-				}
+#ifdef REAL_NETWORK_MODE
+				struct sockaddr_in client_addr;
+				get_client_sockaddr(&client_addr);
+				create_client(&server_addr, &client_addr);
+#else
+				connect_to_server(&server_addr);
+#endif
+				DEBUG("%s: DONE \n", __func__);
+			}
 		}
 	}
 
