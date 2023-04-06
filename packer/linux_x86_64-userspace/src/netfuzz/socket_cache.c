@@ -298,6 +298,54 @@ static void move_thread_to_netns() {
 	hprintf("done\n");
 }
 
+char *hexdump_representation(const char *rcvbuf, size_t len) {
+  if (rcvbuf == NULL) {
+    return NULL;
+  }
+
+  size_t line_len = 76;               // Line length without any shift
+  size_t hex_lines = (len + 15) / 16; // Calculate the number of lines needed
+  size_t hex_len = hex_lines * line_len + 1; // Total length of hex_dump string
+  char *hex_dump = (char *)malloc(hex_len * sizeof(char));
+
+  if (hex_dump == NULL) {
+    return NULL;
+  }
+
+  size_t hex_dump_pos = 0;
+  for (size_t i = 0; i < len; i += 16) {
+    int line_offset = snprintf(hex_dump + hex_dump_pos, 11, "%08zX  ", i);
+    hex_dump_pos += line_offset;
+
+    for (size_t j = 0; j < 16; j++) {
+      if (i + j < len) {
+        line_offset = snprintf(hex_dump + hex_dump_pos, 5, "%02X ",
+                               (unsigned char)rcvbuf[i + j]);
+      } else {
+        line_offset = snprintf(hex_dump + hex_dump_pos, 5, "   ");
+      }
+      hex_dump_pos += line_offset;
+      if (j == 7) {
+        hex_dump[hex_dump_pos++] = ' ';
+      }
+    }
+
+    hex_dump[hex_dump_pos++] = ' ';
+    hex_dump[hex_dump_pos++] = '|';
+
+    for (size_t j = 0; j < 16 && i + j < len; j++) {
+      hex_dump[hex_dump_pos++] =
+          (rcvbuf[i + j] >= 32 && rcvbuf[i + j] <= 126) ? rcvbuf[i + j] : '.';
+    }
+
+    hex_dump[hex_dump_pos++] = '|';
+    hex_dump[hex_dump_pos++] = '\n';
+  }
+  hex_dump[hex_dump_pos] = '\0'; // Null-terminate the hex_dump string
+
+  return hex_dump;
+}
+
 void *client_thread_func(void *data)
 {
 	move_thread_to_netns();
@@ -343,6 +391,16 @@ void *client_thread_func(void *data)
 			pthread_cond_wait(&server_ready, &lock);
 
 		real_write(socket_desc, client_thread_data_to_send, client_thread_data_to_send_len);
+
+#ifdef DEBUG_MODE
+		{
+			char *hexdumped_data = hexdump_representation(client_thread_data_to_send,
+														  client_thread_data_to_send_len);
+			DEBUG("%s: Data that will be sended (%zu len):\n%s\n", __func__,
+				  client_thread_data_to_send_len, hexdumped_data);
+			free(hexdumped_data);
+		}
+#endif
 
 		server_ready_flag = false;
 		pthread_mutex_unlock(&lock);
