@@ -1,4 +1,4 @@
-
+#include <pthread.h>
 #include <stdio.h>
 #include <assert.h>
 #include "socket_cache.h"
@@ -16,6 +16,7 @@ typedef struct interfaces_s {
 
 	int client_sockets[8];
 	uint8_t client_sockets_num;
+	pthread_t client_thread; // TODO: add 8 thread support
 
 	uint16_t port_server;
 	uint16_t port_client;
@@ -30,6 +31,8 @@ uint8_t active_connections = 0;
 interfaces_t connections[MAX_CONNECTIONS] = {0};
 uint8_t active_con_num = 0;
 
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //TODO: add 8 mutexes?
+pthread_cond_t server_ready = PTHREAD_COND_INITIALIZER;
 
 /* TODO: make this code thread safe */
 
@@ -112,6 +115,7 @@ static bool close_server_socket(interfaces_t* connection, int socket){
 
 /* ok */
 bool connection_exists(uint16_t port){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d\n", __func__, port);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -119,15 +123,18 @@ bool connection_exists(uint16_t port){
       continue;
     }
 		if(connections[i].port == port){
+			pthread_mutex_unlock(&lock);
 			return true;
 		}
 	} 
 
+	pthread_mutex_unlock(&lock);
 	return false;
 }
 
 /* modify -> multi FDs */
 bool server_socket_exists(int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d\n", __func__, socket);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -136,15 +143,18 @@ bool server_socket_exists(int socket){
     }
 
 		if(check_server_socket(&connections[i], socket)){
+			pthread_mutex_unlock(&lock);
 			return true;
 		}
 
 	} 
 
+	pthread_mutex_unlock(&lock);
 	return false;
 }
 
 int server_socket_to_port(int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d\n", __func__, socket);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -153,16 +163,19 @@ int server_socket_to_port(int socket){
     }
 
 		if(check_server_socket(&connections[i], socket)){
+			pthread_mutex_unlock(&lock);
 			return connections[i].port;
 		}
 	} 
 
+	pthread_mutex_unlock(&lock);
 	return -1;
 }
 
 
 /* unused ? */
 bool client_socket_exists(int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d\n", __func__, socket);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -171,16 +184,19 @@ bool client_socket_exists(int socket){
     }
 
 		if(check_client_socket(&connections[i], socket)){
+			pthread_mutex_unlock(&lock);
 			return true;
 		}
 
 	} 
 
+	pthread_mutex_unlock(&lock);
 	return false;
 }
 
 /* modify -> multi FDs */
 bool set_server_socket_to_connection(uint16_t port, int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d %d\n", __func__, socket, port);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -191,14 +207,17 @@ bool set_server_socket_to_connection(uint16_t port, int socket){
 
 			add_server_socket(&connections[i], socket);
 
+			pthread_mutex_unlock(&lock);
 			return true;
 		}
 	} 
+	pthread_mutex_unlock(&lock);
 	return false;
 }
 
 /* modify -> multi FDs or keep it? */
 bool set_client_socket_to_connection(uint16_t port, int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d %d\n", __func__, socket, port);
 
 	for(uint8_t i = 0; i < active_connections; i++){
@@ -208,9 +227,11 @@ bool set_client_socket_to_connection(uint16_t port, int socket){
 		if(connections[i].port == port){
 			add_client_socket(&connections[i], socket);
 
+			pthread_mutex_unlock(&lock);
 			return true;
 		}
 	} 
+	pthread_mutex_unlock(&lock);
 	return false;
 }
 
@@ -220,9 +241,12 @@ bool add_connection(uint16_t port){
 
 	assert(!connection_exists(port));
 
+	pthread_mutex_lock(&lock);
+
 	if(active_con_num >= MAX_CONNECTIONS){
 		/* TODO: replace with ABORT hypercall */
 		hprintf("%s -> release\n", __func__);
+		pthread_mutex_unlock(&lock);
 		kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
 	}
 	//hprintf("%s -> port: %d\n", __func__, port);
@@ -233,12 +257,14 @@ bool add_connection(uint16_t port){
 	connections[active_connections].server_sockets_num = 0;
 
 	active_connections++;
-  active_con_num++;
+	active_con_num++;
+	pthread_mutex_unlock(&lock);
 	return true;
 }
 
 /* modify -> multi FDs */
 int set_select_fds(fd_set *set, fd_set *old_set){
+	pthread_mutex_lock(&lock);
 	//hprintf("%s -> %d\n", __func__, active_connections);
 	int ret = 0;
 
@@ -255,12 +281,14 @@ int set_select_fds(fd_set *set, fd_set *old_set){
 		}
 	} 
 		
+	pthread_mutex_unlock(&lock);
 	return ret;
 
 }
 
 /* modify -> multi FDs */
 void disable_connection_by_server_socket(int socket){
+	pthread_mutex_lock(&lock);
 	DEBUG("%s: %d\n", __func__, socket);
 
   for(uint8_t i = 0; i < active_connections; i++){
@@ -271,10 +299,13 @@ void disable_connection_by_server_socket(int socket){
 		if(close_server_socket(&connections[i], socket) && connections[i].server_sockets_num == 0){
 			active_con_num--;
       connections[i].disabled = true;
+            //TODO pthread_join here??
+	  pthread_mutex_unlock(&lock);
 			return;
 		}
 
 	}
+  pthread_mutex_unlock(&lock);
 }
 
 uint16_t get_active_connections(void){
