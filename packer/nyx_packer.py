@@ -185,6 +185,7 @@ def compile(config):
     SETUP_FOLDER = config.argument_values["setup_folder"]
     UDP_MODE = config.argument_values["nyx_net_udp"]
     CLIENT_MODE = config.argument_values["nyx_net_client_mode"]
+    REAL_NETWORK_MODE = config.argument_values["nyx_net_real_network_mode"]
     RECOMPILE_SPEC = config.argument_values["recompile_spec"]
     DEBUG_MODE = config.argument_values["nyx_net_debug_mode"]
     STDOUT_STDERR_DEBUG = config.argument_values["debug_stdin_stderr"]
@@ -243,6 +244,8 @@ def compile(config):
         os.environ["CLIENT_MODE"] = "-DCLIENT_MODE "
     if DEBUG_MODE:
         os.environ["DEBUG_MODE"] = "-DDEBUG_MODE "
+    if REAL_NETWORK_MODE:
+        os.environ["REAL_NETWORK_MODE"] = "-DREAL_NETWORK_MODE "
     if STDOUT_STDERR_DEBUG:
         os.environ["STDOUT_STDERR_DEBUG"] = "-DSTDOUT_STDERR_DEBUG "
     if IGNORE_UDP_PORT:

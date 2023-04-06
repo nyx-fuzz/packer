@@ -17,7 +17,7 @@ else
 
   if [ "$NET_FUZZ" = "ON" ]
   then
-    MODE="${UDP_MODE} ${CLIENT_MODE} ${DEBUG_MODE} ${STDOUT_STDERR_DEBUG}"
+    MODE="${UDP_MODE} ${CLIENT_MODE} ${DEBUG_MODE} ${STDOUT_STDERR_DEBUG} ${REAL_NETWORK_MODE}"
     echo "MODES => $MODE"
     clang -shared -g -O0 -m32 -Werror $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin32/ld_preload_fuzz.so -ldl -Isrc
     clang -shared -g -O0 -m32 -Werror -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin32/ld_preload_fuzz_no_pt.so -ldl -Isrc

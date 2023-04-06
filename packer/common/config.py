@@ -306,6 +306,7 @@ class PackerConfiguration:
         nyx_net_group.add_argument('--nyx_net_port', metavar='<nyx_net_port>', help='fuzz specified network port', default=0, type=int)
         nyx_net_group.add_argument('--nyx_net_udp', help='fuzz UDP port instead TCP', action='store_true', default=False)
         nyx_net_group.add_argument('--nyx_net_client_mode', help='fuzz target in client mode', action='store_true', default=False)
+        nyx_net_group.add_argument('--nyx_net_real_network_mode', help='Use real network to transfer data to target', action='store_true', default=False)
         nyx_net_group.add_argument('--nyx_net_stdin', help='use file as stdin input', action=FullPath, type=parse_is_file)
 
         nyx_net_group = parser.add_argument_group("Nyx-Net Extras")
