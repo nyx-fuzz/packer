@@ -425,13 +425,13 @@ def compile(config):
         download_script += " "
 
     if STDOUT_STDERR_DEBUG:
-        download_script += " > stdout.txt 2> stderr.txt\n"
+        download_script += " | ./hcat\n"
+        # download_script += " > stdout.txt 2> stderr.txt\n"
         download_script += "cat stdout.txt | ./hcat\n"
         download_script += "cat stderr.txt | ./hcat\n"
     else:
         download_script += " > /dev/null 2> /dev/null\n"
 
- 
     download_script += "dmesg | grep segfault | ./hcat\n"
     download_script += "./habort\n"
 
