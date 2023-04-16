@@ -19,16 +19,20 @@
 # along with Redqueen.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#cd ../agents/linux_x86_64/
-#bash compile.sh
-#cd -
+if ! [ -x "$(command -v cpio)" ]; then
+  echo 'Error: cpio is not installed.' >&2
+  exit 1
+fi
 
-#cp  ../agents/linux_x86_64/bin/loader/loader rootTemplate/loader
+if ! [ -x "$(command -v gzip)" ]; then
+  echo 'Error: gzip is not installed.' >&2
+  exit 1
+fi
+
 cd ../packer/linux_x86_64-userspace/
 sh compile_loader.sh
 cd -
 cp ../packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
-#cp /home/kafl/nyx_fuzzer_snapshot/snapshot_toy_examples/packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
 chmod +x rootTemplate/loader
 mkdir rootTemplate/lib/
 mkdir rootTemplate/lib64/
