@@ -660,9 +660,9 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout){
 
 extern void foo(void);
 
-int connect_to_server(const char* ip, int port){
+int connect_to_server(struct sockaddr_in *server){
 	int socket_desc;
-	struct sockaddr_in server; 
+	uint16_t port = ntohs(server->sin_port);
 
 	DEBUG("%s enter\n", __func__);
 
@@ -700,13 +700,10 @@ int connect_to_server(const char* ip, int port){
 		exit(-1);
 	}
 		
-	server.sin_addr.s_addr = inet_addr(ip); //inet_addr(ip); //"74.125.235.20");
-	server.sin_family = AF_INET;
-	server.sin_port = htons(port);
 
 	//Connect to remote server
 	//printf("%s: connect to socket...\n", __func__);
-	if (connect(socket_desc , (struct sockaddr *)&server , sizeof(server)) < 0)
+	if (connect(socket_desc , (struct sockaddr *)server , sizeof(*server)) < 0)
 	{
 		DEBUG("connect error %s", strerror(errno));
 		exit(-1);
@@ -782,7 +779,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen){
 
 					add_connection(ntohs(((struct sockaddr_in*)addr)->sin_port));
 
-					connect_to_server("127.0.0.1", ntohs(((struct sockaddr_in*)addr)->sin_port)); /* fix me */
+					connect_to_server((struct sockaddr_in*)addr);
 					//hprintf("%s %d %d\n", __func__, tmp_addr.sin_port, ret);
 					assert(set_server_socket_to_connection(ntohs(((struct sockaddr_in*)addr)->sin_port), sockfd));
 				}
@@ -844,7 +841,7 @@ int listen(int sockfd, int backlog){
 		if(!exists){
 				if(is_target_port(ntohs(addr.sin_port))){ 
 					add_connection(ntohs(addr.sin_port));
-					connect_to_server("127.0.0.1", ntohs(addr.sin_port)); /* fix me */
+					connect_to_server(&addr);
 					DEBUG("%s: DONE \n", __func__);
 
 				}
