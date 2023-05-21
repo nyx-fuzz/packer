@@ -392,15 +392,18 @@ void *client_thread_func(void *data)
 
 		real_write(socket_desc, client_thread_data_to_send, client_thread_data_to_send_len);
 
+#define DEBUG_MODE 1
 #ifdef DEBUG_MODE
 		{
+			fflush(stdout);
 			char *hexdumped_data = hexdump_representation(client_thread_data_to_send,
 														  client_thread_data_to_send_len);
-			DEBUG("%s: Data that will be sended (%zu len):\n%s\n", __func__,
+			hprintf("%s: Data that will be sended (%zu len):\n%s\n", __func__,
 				  client_thread_data_to_send_len, hexdumped_data);
 			free(hexdumped_data);
 		}
 #endif
+#undef DEBUG_MODE
 
 		server_ready_flag = false;
 		pthread_mutex_unlock(&lock);
