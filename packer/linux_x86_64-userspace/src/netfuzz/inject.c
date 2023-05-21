@@ -118,6 +118,9 @@ static inline void init_nyx(void){
 	static bool init_done = false;
 	if(!init_done){
 		DEBUG("%s: init_done = false\n", __func__);
+#if REAL_NETWORK_MODE
+		wait_for_client();
+#endif
 		nyx_init_start();
 		init_done = true;
 	}

@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <assert.h>
@@ -55,7 +56,9 @@ uint8_t active_con_num = 0;
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //TODO: add 8 mutexes?
 pthread_cond_t server_ready = PTHREAD_COND_INITIALIZER;
+pthread_cond_t client_ready = PTHREAD_COND_INITIALIZER;
 bool server_ready_flag = false;
+bool client_ready_flag = false;
 char *client_thread_data_to_send;
 size_t client_thread_data_to_send_len;
 
@@ -346,25 +349,109 @@ char *hexdump_representation(const char *rcvbuf, size_t len) {
   return hex_dump;
 }
 
+void wait_for_client()
+{
+	pthread_mutex_lock(&lock);
+
+	while (!client_ready_flag)
+		pthread_cond_wait(&client_ready, &lock);
+
+	pthread_mutex_unlock(&lock);
+}
+
+void client_is_ready()
+{
+	pthread_mutex_lock(&lock);
+	client_ready_flag = true;
+	pthread_mutex_unlock(&lock);
+
+	pthread_cond_signal(&client_ready);
+}
+
+void find_tcp_seq_numbers_of_connection(int raw_socket, uint32_t *seq_num_client, uint32_t *seq_num_server)
+{
+	char buffer[80]; //sizeof(struct iphdr) + max size of a tcp handshake packet (60)
+
+	DEBUG("%s: Reading SYNACK to get seq numbers.\n", __func__);
+
+	while (1) {
+		ssize_t len = real_read(raw_socket, buffer, sizeof(buffer));
+		if (len <= 0) {
+			hprintf("%s: read error: %s\n", __func__, strerror(errno));
+			exit(-1);
+		}
+
+		struct iphdr *iph = (struct iphdr *)buffer;
+		struct tcphdr *tcph = (struct tcphdr *)((uint8_t *)iph + iph->ihl * 4);
+
+		if (tcph->syn == 1 && tcph->ack == 1) {
+			DEBUG("%s: found synack\n", __func__);
+			*seq_num_server = ntohl(tcph->seq);
+			*seq_num_client = ntohl(tcph->ack_seq) - 1;
+			break;
+		}
+	}
+
+	DEBUG("%s: Got SEQ client: %u, SEQ server: %u\n", __func__, *seq_num_client, *seq_num_server);
+}
+
+static void dump_payload(void* buffer, size_t len, const char* filename)
+{
+	static kafl_dump_file_t file_obj = {0};
+
+	file_obj.file_name_str_ptr = (uintptr_t)filename;
+	file_obj.append = 0;
+	file_obj.bytes = 0;
+	kAFL_hypercall(HYPERCALL_KAFL_DUMP_FILE, (uintptr_t) (&file_obj));
+
+	file_obj.append = 1;
+	file_obj.bytes = len;
+	file_obj.data_ptr = (uintptr_t)buffer;
+	kAFL_hypercall(HYPERCALL_KAFL_DUMP_FILE, (uintptr_t) (&file_obj));
+}
+
+static void send_tcp_numbers_to_main_fuzzer(uint32_t seq_num_client, uint32_t seq_num_server)
+{
+	uint32_t data[2] = {seq_num_client, seq_num_server};
+	size_t size = sizeof(data);
+
+	hprintf("%s: SEQ client: %u, SEQ server: %u\n", __func__, seq_num_client, seq_num_server);
+
+	dump_payload(data, size, "tcp_sequence_numbers.bin");
+}
+
 void *client_thread_func(void *data)
 {
 	move_thread_to_netns();
 	thread_args_t *args = (thread_args_t *)data;
 	struct sockaddr_in server = args->server;
 	struct sockaddr_in client = args->client;
-	int socket_desc;
+	int handshake_socket;
+	uint32_t seq_num_client = 0;
+	uint32_t seq_num_server = 0;
 
 	hprintf("%s: create socket...\n", __func__);
 
-	socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-	if (socket_desc == -1)
+	handshake_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (handshake_socket == -1)
 	{
 		hprintf("socket error: %s\n", strerror(errno));
 		exit(-1);
 	}
 
-	if (real_bind(socket_desc, (struct sockaddr *)&client, sizeof(client)) < 0)
+	if (real_bind(handshake_socket, (struct sockaddr *)&client, sizeof(client)) < 0)
 	{
+		hprintf("bind error: %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	int send_socket = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+	if (send_socket == -1) {
+		hprintf("socket error: %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	if (real_bind(send_socket, (struct sockaddr *)&client, sizeof(client)) < 0) {
 		hprintf("bind error: %s\n", strerror(errno));
 		exit(-1);
 	}
@@ -372,17 +459,23 @@ void *client_thread_func(void *data)
 	//Connect to remote server
 	hprintf("%s: connect to socket...\n", __func__);
 	hprintf("%s: server port is %d\n", __func__, ntohs(server.sin_port));
-	if (real_connect(socket_desc, (struct sockaddr *)&server, sizeof(server)) < 0)
+	if (real_connect(handshake_socket, (struct sockaddr *)&server, sizeof(server)) < 0)
 	{
 		hprintf("connect error: %s\n", strerror(errno));
 		exit(-1);
 	}
 
-	assert(set_client_socket_to_connection(ntohs(server.sin_port), socket_desc));
+	hprintf("%s: Connected. Handshake is done\n", __func__);
+
+	find_tcp_seq_numbers_of_connection(send_socket, &seq_num_client, &seq_num_server);
+
+	send_tcp_numbers_to_main_fuzzer(seq_num_client, seq_num_server);
+
+	assert(set_client_socket_to_connection(ntohs(server.sin_port), handshake_socket));
 
 	free(data);
 
-	hprintf("%s: Connected. Handshake is done. Locking and waiting now\n", __func__);
+	client_is_ready();
 
 	while (1) {
 		pthread_mutex_lock(&lock);
@@ -390,7 +483,9 @@ void *client_thread_func(void *data)
 		while (!server_ready_flag)
 			pthread_cond_wait(&server_ready, &lock);
 
-		real_write(socket_desc, client_thread_data_to_send, client_thread_data_to_send_len);
+		real_sendto(send_socket, client_thread_data_to_send,
+					client_thread_data_to_send_len, 0,
+					(struct sockaddr *)&server, sizeof(server));
 
 #define DEBUG_MODE 1
 #ifdef DEBUG_MODE
