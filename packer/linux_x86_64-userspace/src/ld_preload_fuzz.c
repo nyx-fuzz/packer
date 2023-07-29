@@ -252,10 +252,25 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
         //hprintf("%s: 2: %p\n", __func__, vm->user_data);
         //hprintf("%s: 3: %p\n", __func__, vm->user_data->len);
 
-        if(interpreter_run(vm)==0){
+        if (!vm->data_len || *vm->data_len == 0){
             DEBUG("%s: out of data\n", __func__);
             return -1;
         }
+
+        if (*vm->data_len > PACKET_BUFFER_SIZE){
+            DEBUG("%s: input size %d too large for buffer\n", __func__, *vm->data_len);
+            return -1;
+        }
+
+        DEBUG("DATA: %d\n", *(uint32_t*)vm->data);
+        DEBUG("Copy %d input bytes from %p to %p\n", *vm->data_len, vm->data, vm->user_data->data);
+        memcpy(vm->user_data->data, vm->data, *vm->data_len);
+        vm->user_data->len = *vm->data_len;
+
+        // Multi-packets handled by available_data and next_data
+        // cannot write to data pointed by vm pointers anyways
+        vm->data_len = NULL;
+        vm->data = NULL;
 
 #ifdef EARLY_EXIT_NODES
         count++;
@@ -281,6 +296,7 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
         hprintf("WARNING: num_copied: %d / num_copied: %d\n", available_data, num_copied);
     }
     */
+    DEBUG("Copy %zu buffer bytes from %p to %p\n", num_copied, &data_buffer[next_data], data);
     memcpy(data, &data_buffer[next_data], num_copied);
     available_data-=num_copied;
     next_data+=num_copied;
@@ -332,29 +348,14 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream){
 #endif
 
 static void setup_interpreter(void* payload_buffer) {
-  uint64_t* offsets = (uint64_t*)payload_buffer;
-  //hprintf("checksum: %lx, %lx\n",offsets[0], INTERPRETER_CHECKSUM);
-  ASSERT(offsets[0] == INTERPRETER_CHECKSUM);
-  ASSERT(offsets[1] < 0xffffff);
-  ASSERT(offsets[2] < 0xffffff);
-  ASSERT(offsets[3] < 0xffffff);
-  ASSERT(offsets[4] < 0xffffff);
-  uint64_t* graph_size = &offsets[1];
-  uint64_t* data_size = &offsets[2];
-  
-  //printf("graph_size: %d\n", graph_size);
-  //printf("data_size: %d\n", graph_size);
-  //printf("graph_offset: %d\n", offsets[3]);
-  //printf("data_offset: %d\n", offsets[4]);
-  
-  uint16_t* graph_ptr = (uint16_t*)(payload_buffer+offsets[3]);
-  uint8_t* data_ptr = (uint8_t*)(payload_buffer+offsets[4]);
-  ASSERT(input_buffer_size != 0);
-  ASSERT(offsets[3]+(*graph_size)*sizeof(uint16_t) <= input_buffer_size);
-  ASSERT(offsets[4]+*data_size <= input_buffer_size);
-  init_interpreter(vm, graph_ptr, (size_t*)graph_size, data_ptr, (size_t*)data_size, (void*)&ijon_trace_buffer->interpreter_data.executed_opcode_num);
-  interpreter_user_init(vm);
-  vm->user_data = &vm_state;
+    uint32_t* offsets = (uint32_t*)payload_buffer;
+
+    vm->data_len = offsets;
+    vm->data = (uint8_t*)&offsets[1];
+
+    DEBUG("input length %zu, %hhx ...\n", *vm->data_len, vm->data[0]);
+
+    // vm->user_data = &vm_state;
 }
 #endif
 
@@ -931,6 +932,7 @@ void nyx_init_start(void){
 
 #ifndef LEGACY_MODE
     vm = new_interpreter();
+    hprintf("interpreter: %p\n", vm);
     vm->user_data = &vm_state;
     vm->user_data->len = 0;
     vm->user_data->data = 0;
@@ -962,7 +964,6 @@ void nyx_init_start(void){
     //hprintf("========================================================\n");
 
     while(1){
-
 /* fixme */
 #ifndef NET_FUZZ
         pid = _fork();
@@ -1123,6 +1124,7 @@ int __main(int argc, char** argv, char** envp){
 #ifdef LEGACY_MODE
     nyx_init();
 #endif
+    
     return original_main(argc, argv, envp);
 }
 

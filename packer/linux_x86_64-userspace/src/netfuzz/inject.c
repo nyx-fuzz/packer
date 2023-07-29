@@ -366,6 +366,23 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags){
 	return ret;
 }
 
+int printf(const char* format, ...)
+{
+	va_list arg;
+
+	va_start(arg, format);
+	hprintf(format, va_arg(arg, int));
+	va_end(arg);
+
+	return 0;
+}
+
+int puts(const char* s)
+{
+	hprintf(s);
+	return 0;
+}
+
 static bool data_avaliable(int fd){
   fd_set set;
   struct timeval timeout;

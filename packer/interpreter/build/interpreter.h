@@ -57,7 +57,7 @@ typedef struct {
 	size_t ops_i;
 
 	uint8_t* data;
-	size_t* data_len;
+	uint32_t* data_len;
 	size_t data_i;
 	uint32_t* instruction_counter;
 

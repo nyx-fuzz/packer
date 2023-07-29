@@ -43,7 +43,7 @@ typedef struct {
 	size_t ops_i;
 
 	uint8_t* data;
-	size_t* data_len;
+	uint32_t* data_len;
 	size_t data_i;
 	uint32_t* instruction_counter;
 
@@ -116,7 +116,7 @@ interpreter_t* new_interpreter(){
 	return vm;
 }
 
-void init_interpreter(interpreter_t* vm, uint16_t* ops, size_t* ops_len, uint8_t* data, size_t* data_len, uint32_t* instruction_counter){
+void init_interpreter(interpreter_t* vm, uint16_t* ops, size_t* ops_len, uint8_t* data, uint32_t* data_len, uint32_t* instruction_counter){
 	vm->ops=ops;
 	vm->ops_len=ops_len;
 	vm->ops_i = 0;

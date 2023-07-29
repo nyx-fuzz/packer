@@ -38,6 +38,9 @@ typedef int (*real_getpeername_t)(int, struct sockaddr*, socklen_t*);
 typedef char* (*real_fgets_t)(char*, int, FILE*);
 typedef int (*real_open_t)(const char *pathname, int flags);
 typedef int (*real_ioctl_t)(int fd, int cmd, void *argp);
+typedef int (*real_socket_t)(int a, int b, int c);
+typedef int (*real_printf_t)(const char* format, ...);
+typedef int (*real_puts_t)(const char* s);
 
 bool initialized = false;
 
@@ -73,6 +76,9 @@ real_getpeername_t real_getpeername_ptr = NULL;
 real_fgets_t real_fgets_ptr = NULL;
 real_open_t real_open_ptr = NULL;
 real_ioctl_t real_ioctl_ptr = NULL;
+real_socket_t real_socket_ptr = NULL;
+real_printf_t real_printf_ptr = NULL;
+real_puts_t real_puts_ptr = NULL;
 
 
 void init_syscall_fptr(void){
@@ -114,6 +120,9 @@ void init_syscall_fptr(void){
   real_fgets_ptr = (real_fgets_t)dlsym(RTLD_NEXT, "fgets");
   real_open_ptr = (real_open_t)dlsym(RTLD_NEXT, "open");
   real_ioctl_ptr = (real_ioctl_t)dlsym(RTLD_NEXT, "ioctl");
+  real_socket_ptr = (real_socket_t)dlsym(RTLD_NEXT, "socket");
+  real_printf_ptr = (real_printf_t)dlsym(RTLD_NEXT, "printf");
+  real_puts_ptr = (real_puts_t)dlsym(RTLD_NEXT, "puts");
 
   assert(real_listen_ptr);
   assert(real_accept_ptr);
@@ -146,6 +155,7 @@ void init_syscall_fptr(void){
   assert(real_getpeername_ptr);
   assert(real_open_ptr);
   assert(real_ioctl_ptr);
+  assert(real_socket_ptr);
 
   initialized = true;
 
@@ -317,4 +327,25 @@ int real_open(const char *pathname, int flags){
 int real_ioctl(int fd, int cmd, void *argp){
   assert(real_ioctl_ptr);
   return real_ioctl_ptr(fd, cmd, argp);
+}
+
+int real_socket(int a, int b, int c){
+  assert(real_socket_ptr);
+  return real_socket_ptr(a, b, c);
+}
+
+int real_printf(const char* format, ...){
+  assert(real_printf_ptr);
+
+  va_list arg;
+	va_start(arg, format);
+	real_printf_ptr(format, va_arg(arg, int));
+	va_end(arg);
+
+	return 0;
+}
+
+int real_puts(const char* s){
+  assert(real_puts_ptr);
+  return real_puts_ptr(s);
 }
