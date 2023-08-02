@@ -172,7 +172,7 @@ void handle_asan(void){
     }
 }
 
-void __assert(const char *func, const char *file, int line, const char *failedexpr){
+void _assert(const char *func, const char *file, int line, const char *failedexpr){
         sprintf(log_content, "HYPERCALL_KAFL_PANIC_EXTENDED: assert: %s %s %d: %s\n", func, file, line, failedexpr);
         kAFL_hypercall(HYPERCALL_KAFL_PANIC_EXTENDED, (uintptr_t)log_content);
 }

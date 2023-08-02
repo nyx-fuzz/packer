@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package afl_input;
+
+message Packet {
+  bytes buffer = 1;
+}
+
+message Input {
+    repeated Packet packets = 1;
+}

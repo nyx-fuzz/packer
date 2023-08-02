@@ -1,4 +1,6 @@
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+    #define _GNU_SOURCE
+#endif
 
 #include <sys/mman.h>
 #include <dlfcn.h>
@@ -21,6 +23,8 @@
 #include "nyx.h"
 #include "misc/crash_handler.h"
 #include "misc/harness_state.h"
+
+#include "afl_input.h"
 
 //#define HYPERCALL_KAFL_RELEASE_DEBUG
 
@@ -56,13 +60,12 @@ bool payload_mode = false;
 #ifndef LEGACY_MODE
 #include "interpreter.h"
 #else
-extern void __assert(const char *func, const char *file, int line, const char *failedexpr);
-#define INTERPRETER_ASSERT(x) do { if (x){}else{ __assert(__func__, __FILE__, __LINE__, #x);} } while (0)
+extern void _assert(const char *func, const char *file, int line, const char *failedexpr);
+#define INTERPRETER_ASSERT(x) do { if (x){}else{ _assert(__func__, __FILE__, __LINE__, #x);} } while (0)
 #define ASSERT(x) INTERPRETER_ASSERT(x)
 #endif
 
 #include "ijon_extension.h"
-
 
 #define ASAN_EXIT_CODE 101
 //#define REDIRECT_STDERR_TO_HPRINTF
@@ -193,7 +196,7 @@ void hprintf_payload(char* data, size_t len){
 //#define COPY_PAYLOAD_MODE
 
 
-ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_dump_mode){
+ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_dump_mode) {
 
 #ifdef EARLY_EXIT_NODES
     static int count = 0;
@@ -237,8 +240,9 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
 //#endif
         return vm->user_data->len;
     }
-#else
+#endif /* UDP_MODE */
 
+#ifdef LEGACY_MODE
     #define PACKET_BUFFER_SIZE (1<<14)
     static char data_buffer[PACKET_BUFFER_SIZE];
     static size_t available_data= 0;
@@ -252,25 +256,10 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
         //hprintf("%s: 2: %p\n", __func__, vm->user_data);
         //hprintf("%s: 3: %p\n", __func__, vm->user_data->len);
 
-        if (!vm->data_len || *vm->data_len == 0){
+        if(interpreter_run(vm)==0){
             DEBUG("%s: out of data\n", __func__);
             return -1;
         }
-
-        if (*vm->data_len > PACKET_BUFFER_SIZE){
-            DEBUG("%s: input size %d too large for buffer\n", __func__, *vm->data_len);
-            return -1;
-        }
-
-        DEBUG("DATA: %d\n", *(uint32_t*)vm->data);
-        DEBUG("Copy %d input bytes from %p to %p\n", *vm->data_len, vm->data, vm->user_data->data);
-        memcpy(vm->user_data->data, vm->data, *vm->data_len);
-        vm->user_data->len = *vm->data_len;
-
-        // Multi-packets handled by available_data and next_data
-        // cannot write to data pointed by vm pointers anyways
-        vm->data_len = NULL;
-        vm->data = NULL;
 
 #ifdef EARLY_EXIT_NODES
         count++;
@@ -296,20 +285,52 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
         hprintf("WARNING: num_copied: %d / num_copied: %d\n", available_data, num_copied);
     }
     */
-    DEBUG("Copy %zu buffer bytes from %p to %p\n", num_copied, &data_buffer[next_data], data);
     memcpy(data, &data_buffer[next_data], num_copied);
     available_data-=num_copied;
     next_data+=num_copied;
 
+#else /* Not LEGACY_MODE */
+
+    if (afl_has_next() == 0) {
+
+        /* Parse new packets from vm buffer */
+
+        if (!vm->data_len || *vm->data_len == 0){
+            DEBUG("%s: out of data\n", __func__);
+            return -1;
+        }
+
+        afl_deserialize(vm->data, *vm->data_len);
+        vm->data_len = NULL;
+        
+#ifdef EARLY_EXIT_NODES
+        if (++count >= EARLY_EXIT_NODES){
+            //hprintf("EARLY EXIT\n");
+            return -1;
+        }
+#endif
+
+        if(vm->user_data->closed){
+            DEBUG("%s: closed\n", __func__);
+            return -1; /* -1 -> EOF */
+        }
+    }
+
+    /* Serialize next packet into data buffer */
+
+    size_t num_copied = afl_get_next(data, max_size);
+
+#endif /* End not LEGACY_MODE */
+
     DEBUG("CALL_VM %d -> %d\n", max_size, num_copied);
-//#ifdef COPY_PAYLOAD_MODE  
+
+#ifdef COPY_PAYLOAD_MODE  
     if(payload_mode && !disable_dump_mode){
         hprintf_payload(data, num_copied);
     }
-//#endif
-    //return 0;
-    return num_copied;
 #endif
+
+    return num_copied;
 }
 
 #ifndef NET_FUZZ
@@ -353,6 +374,7 @@ static void setup_interpreter(void* payload_buffer) {
     vm->data_len = offsets;
     vm->data = (uint8_t*)&offsets[1];
 
+    // This should just be "INIT"
     DEBUG("input length %zu, %hhx ...\n", *vm->data_len, vm->data[0]);
 
     // vm->user_data = &vm_state;
@@ -550,9 +572,9 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
             habort("Error: NYX_HOST_VERSION not found in host configuration - You are probably using an outdated version of QEMU-Nyx...");
         }
 
-        hprintf("[capablities] host_config.bitmap_size: 0x%"PRIx64"\n", host_config.bitmap_size);
-        hprintf("[capablities] host_config.ijon_bitmap_size: 0x%"PRIx64"\n", host_config.ijon_bitmap_size);
-        hprintf("[capablities] host_config.payload_buffer_size: 0x%"PRIx64"x\n", host_config.payload_buffer_size);
+        hprintf("[capablities] host_config.bitmap_size: 0x%" PRIx64 "\n", host_config.bitmap_size);
+        hprintf("[capablities] host_config.ijon_bitmap_size: 0x%" PRIx64 "\n", host_config.ijon_bitmap_size);
+        hprintf("[capablities] host_config.payload_buffer_size: 0x%" PRIx64 "x\n", host_config.payload_buffer_size);
 
         input_buffer_size = host_config.payload_buffer_size;
 
@@ -575,7 +597,7 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
         /* AFL++ LTO support */ 
         if (get_harness_state()->afl_mode && __afl_final_loc_ptr){
             unsigned int map_size = __afl_final_loc == 0 ? 65536 : __afl_final_loc;
-            hprintf("[capablities] overwriting bitmap_size: 0x%"PRIx64"\n", map_size);
+            hprintf("[capablities] overwriting bitmap_size: 0x%" PRIx64 "\n", map_size);
             agent_config.coverage_bitmap_size = map_size;
         }
 
@@ -590,11 +612,11 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
         
         /* read debug flag */
 
-        if(agent_config.dump_payloads){
+        // if(agent_config.dump_payloads){
             hprintf("[capablities] payload mode enabled\n");
             payload_mode = true;
             //abort();
-        }
+        // }
 
         
         done = true;
@@ -859,7 +881,7 @@ void nyx_init_start(void){
 
     for(i = 0; i < 4; i++){
         if (range_buffer->enabled[i]){
-            hprintf("[init] Intel PT range %d is enabled\t -> (0x"PRIx64"-0x"PRIx64")\n", i, range_buffer->ip[i], range_buffer->ip[i]+range_buffer->size[i]);
+            hprintf("[init] Intel PT range %d is enabled\t -> (0x" PRIx64 "-0x" PRIx64 ")\n", i, range_buffer->ip[i], range_buffer->ip[i]+range_buffer->size[i]);
         }
     }
 

@@ -18,9 +18,22 @@ else
   if [ "$NET_FUZZ" = "ON" ]
   then
     MODE="${UDP_MODE} ${CLIENT_MODE} ${DEBUG_MODE} ${STDOUT_STDERR_DEBUG}"
-    #echo "MODES => $MODE"
-    clang -shared -g -O0 -m64 -Werror $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz.so -ldl -Isrc
-    clang -shared -g -O0 -m64 -Werror -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz_no_pt.so -ldl -Isrc
+    echo "MODES => $MODE"
+    protoc -Isrc/proto input.proto --cpp_out=src/proto
+    #clang++ -shared -g -O0 -m64 -Werror $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz.so -ldl -Isrc -Iproto src/proto/input.pb.cc -lprotobuf
+    #clang++ -shared -g -O0 -m64 -Werror -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz_no_pt.so -ldl -Isrc -Iproto src/proto/input.pb.cc -lprotobuf
+    # currently working with:
+    clang++ -c -g -O0 -m64 -Werror -DNO_PT_NYX -DNET_FUZZ $MODE -fPIC \
+        src/proto/afl_input.cpp src/proto/input.pb.cc \
+        -Isrc/proto
+    clang -c -g -O0 -m64 -Werror -Wno-unused-value -DNO_PT_NYX -DNET_FUZZ $MODE -fPIC \
+        src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c src/netfuzz/inject.c \
+        -I../../ -Isrc -Isrc/proto -I/home/jausten/nyxnet/nyx-net/targets/specs/echoserver/build
+    clang++ -shared -g -O0 -m64 -Werror $MODE -fPIC \
+        ld_preload_fuzz.o input.pb.o crash_handler.o harness_state.o inject.o socket_cache.o syscalls.o afl_input.o \
+        -I../../ -Isrc -Isrc/proto -I/home/jausten/nyxnet/nyx-net/targets/specs/echoserver/build \
+        -o bin64/ld_preload_fuzz_no_pt.so -lprotobuf -ldl
+    rm ld_preload_fuzz.o input.pb.o crash_handler.o harness_state.o inject.o socket_cache.o syscalls.o afl_input.o
 
   else
 
