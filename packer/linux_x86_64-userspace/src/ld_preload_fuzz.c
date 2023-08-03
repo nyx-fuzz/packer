@@ -551,15 +551,9 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
 
         hprintf("[capablities] host_config.bitmap_size: 0x%"PRIx64"\n", host_config.bitmap_size);
         hprintf("[capablities] host_config.ijon_bitmap_size: 0x%"PRIx64"\n", host_config.ijon_bitmap_size);
-        hprintf("[capablities] host_config.payload_buffer_size: 0x%"PRIx64"x\n", host_config.payload_buffer_size);
+        hprintf("[capablities] host_config.payload_buffer_size: 0x%"PRIx64"\n", host_config.payload_buffer_size);
 
         input_buffer_size = host_config.payload_buffer_size;
-
-        trace_buffer = mmap((void*)NULL, host_config.bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        memset(trace_buffer, 0xff, host_config.bitmap_size);
-
-        ijon_trace_buffer = mmap((void*)NULL, host_config.ijon_bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        memset(ijon_trace_buffer, 0xff, host_config.ijon_bitmap_size);
 
         agent_config_t agent_config = {0};
 
@@ -568,15 +562,23 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
         agent_config.agent_timeout_detection = (uint8_t)timeout_detection;
         agent_config.agent_tracing = (uint8_t)agent_tracing;
         agent_config.agent_ijon_tracing = 1; //(uint8_t) ijon_tracing; /* fix me later */
-        agent_config.trace_buffer_vaddr = (uintptr_t)trace_buffer;
-        agent_config.ijon_trace_buffer_vaddr = (uintptr_t)ijon_trace_buffer;
 
         /* AFL++ LTO support */ 
+        agent_config.coverage_bitmap_size = host_config.bitmap_size;
         if (get_harness_state()->afl_mode && __afl_final_loc_ptr){
             unsigned int map_size = __afl_final_loc == 0 ? 65536 : __afl_final_loc;
             hprintf("[capablities] overwriting bitmap_size: 0x%"PRIx64"\n", map_size);
             agent_config.coverage_bitmap_size = map_size;
         }
+
+        trace_buffer = mmap((void*)NULL, agent_config.coverage_bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(trace_buffer, 0xff, agent_config.coverage_bitmap_size);
+
+        ijon_trace_buffer = mmap((void*)NULL, host_config.ijon_bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(ijon_trace_buffer, 0xff, host_config.ijon_bitmap_size);
+
+        agent_config.trace_buffer_vaddr = (uintptr_t)trace_buffer;
+        agent_config.ijon_trace_buffer_vaddr = (uintptr_t)ijon_trace_buffer;
 
 #ifdef NET_FUZZ
         agent_config.agent_non_reload_mode = 0; //(uint8_t) ijon_tracing; /* fix me later */
