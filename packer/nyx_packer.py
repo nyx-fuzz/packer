@@ -368,6 +368,7 @@ def compile(config):
     else:
         download_script += "LD_BIND_NOW=1 LD_PRELOAD=/tmp/ld_preload_fuzz.so "
     download_script += "ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:log_path=/tmp/data.log:abort_on_error=true __AFL_DEFER_FORKSRV=1 "
+    download_script += "NYX_VM=1 "
 
     if DELAYED_INIT:
         download_script += "DELAYED_NYX_FUZZER_INIT=ON "
