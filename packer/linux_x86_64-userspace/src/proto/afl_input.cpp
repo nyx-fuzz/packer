@@ -45,7 +45,7 @@ extern "C" void afl_set_packet(int index, void* buf, size_t size) {
     packet.ParseFromArray(buf, size);
 }
 
-extern "C" size_t afl_serialize(void* buf,size_t size) {
+extern "C" size_t afl_serialize(void* buf, size_t size) {
     
     printf("Serializing packets...\n");
     for (auto pkt : g_input.packets())
@@ -64,16 +64,13 @@ extern "C" size_t afl_serialize(void* buf,size_t size) {
     return std::min(size, g_input.ByteSizeLong());
 }
 
-extern "C" int afl_has_next() {
-    if (g_packet == g_input.packets().end())
-        return 0;
-    return 1;
+extern "C" bool afl_has_next() {
+    return g_packet != g_input.packets().end();
 }
 
-extern "C" size_t afl_get_next(void* buf, size_t size) {
-    g_packet->SerializeToArray(buf, size);
-
-    size_t out_size = std::min(size, g_packet->buffer().size());
+extern "C" const char* afl_get_next(size_t* out_size) {
+    *out_size = g_packet->buffer().size();
+    const char* pkt = g_packet->buffer().data();
     g_packet++;
-    return out_size;
+    return pkt;
 }

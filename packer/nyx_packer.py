@@ -174,6 +174,9 @@ def compile(config):
     if config.argument_values["mode"] == "afl":
         LEGACY_MODE = True
     elif config.argument_values["mode"] == "spec":
+        print(WARNING + WARNING_PREFIX + "The integrated nyxnet&afl++ mode is now \"nyxnet\"")
+        LEGACY_MODE = False
+    elif config.argument_values["mode"] == "nyxnet":
         LEGACY_MODE = False
     else:
         raise Exception("Unkown mode: %s"%(config.argument_values["mode"]))
@@ -188,7 +191,7 @@ def compile(config):
     #print(DISABLE_PT_RANGE_A)
     #print(DISABLE_PT_RANGE_B)
 
-    if not LEGACY_MODE and not SPEC_FOLDER:
+    if config.argument_values["mode"] == "spec" and not SPEC_FOLDER:
         print(FAIL + "Error: spec not found!" + ENDC)
         return 
 
@@ -244,7 +247,7 @@ def compile(config):
         print(OKGREEN + INFO_PREFIX + "Recompiling..." + ENDC)
 
 
-        execute(["bash", "-x", "compile_64.sh"], config.config_values["AGENTS-FOLDER"] + "/linux_x86_64-userspace/",
+        execute(["bash", "compile_64.sh"], config.config_values["AGENTS-FOLDER"] + "/linux_x86_64-userspace/",
                     print_output=True)
 
     else:

@@ -57,13 +57,7 @@ bool payload_mode = false;
 //#endif
 
 
-#ifndef LEGACY_MODE
 #include "interpreter.h"
-#else
-extern void _assert(const char *func, const char *file, int line, const char *failedexpr);
-#define INTERPRETER_ASSERT(x) do { if (x){}else{ _assert(__func__, __FILE__, __LINE__, #x);} } while (0)
-#define ASSERT(x) INTERPRETER_ASSERT(x)
-#endif
 
 #include "ijon_extension.h"
 
@@ -78,13 +72,11 @@ bool fuzzer_ready = false;
 
 
 
-#ifndef LEGACY_MODE
 interpreter_t* vm;
 #ifdef NET_FUZZ
 socket_state_t vm_state;
 #else
 fd_state_t vm_state;
-#endif
 #endif
 
 ssize_t (*fptr_read)(int fd, void *data, size_t size);
@@ -200,129 +192,50 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
 
 #ifdef EARLY_EXIT_NODES
     static int count = 0;
-#endif
 
-
-#ifdef UDP_MODE
-    vm->user_data->len = max_size; 
-    vm->user_data->data = data;
-    if(interpreter_run(vm)==0){
-        return -1;
-    }
-
-#ifdef EARLY_EXIT_NODES
-    count++;
-
-    if (count >= EARLY_EXIT_NODES){
+    if (count++ > EARLY_EXIT_NODES){
+        //hprintf("EARLY EXIT\n");
         return -1;
     }
 #endif
 
-    if(vm->user_data->closed){
-        return -1; /* -1 -> EOF */
+    static const char* data_buffer = NULL;
+    static size_t available_data = 0;
+    static size_t offset = 0;
+
+    if (available_data <= 0) {
+
+        if (!afl_has_next()) {
+
+            /* Parse new set of packets from vm buffer */
+
+            if (!vm->data_len || *vm->data_len == 0){
+                DEBUG("%s: out of data\n", __func__);
+                return -1;
+            }
+
+            afl_deserialize(vm->data, *vm->data_len);
+            vm->data_len = NULL;    /* This assumes vm->data can only be written to once per execution */
+        
+        }
+
+        /* Serialize next packet into data buffer */
+
+        offset = 0;
+        data_buffer = afl_get_next(&available_data);
+        if (available_data < 0) {
+                DEBUG("%s: packet does not fit in data_buffer\n", __func__);
+                return -1;
+        }
+
     }
 
-    //hprintf("max: %d / pkt_len: %d / len: %d\n", max_size, vm->user_data->pkt_len, vm->user_data->len);
-    if(return_pkt_size && max_size < vm->user_data->len){
-//#ifdef COPY_PAYLOAD_MODE 
-        if(payload_mode && !disable_dump_mode){
-            hprintf_payload(vm->user_data->data, vm->user_data->len);
-        }
-        //hprintf("%d vs %d\n", vm->user_data->pkt_len, max_size);
-//#endif
-        return vm->user_data->len;
-    }
-    else{
-//#ifdef COPY_PAYLOAD_MODE  
-        if(payload_mode && !disable_dump_mode){
-            hprintf_payload(vm->user_data->data, vm->user_data->len);
-        }
-//#endif
-        return vm->user_data->len;
-    }
-#endif /* UDP_MODE */
-
-#ifdef LEGACY_MODE
-    #define PACKET_BUFFER_SIZE (1<<14)
-    static char data_buffer[PACKET_BUFFER_SIZE];
-    static size_t available_data= 0;
-    static size_t next_data = 0;
-
-    if(available_data == 0){
-        vm->user_data->len = PACKET_BUFFER_SIZE;
-        vm->user_data->data = &data_buffer[0];
-            
-        //hprintf("%s: 1: %p\n", __func__, vm);
-        //hprintf("%s: 2: %p\n", __func__, vm->user_data);
-        //hprintf("%s: 3: %p\n", __func__, vm->user_data->len);
-
-        if(interpreter_run(vm)==0){
-            DEBUG("%s: out of data\n", __func__);
-            return -1;
-        }
-
-#ifdef EARLY_EXIT_NODES
-        count++;
-
-        if (count >= EARLY_EXIT_NODES){
-            //hprintf("EARLY EXIT\n");
-            return -1;
-        }
-#endif
-
-        if(vm->user_data->closed){
-            DEBUG("%s: closed\n", __func__);
-
-            return -1; /* -1 -> EOF */
-        }
-        available_data = vm->user_data->len;
-        next_data = 0;
-    }
+    /* Copy requested data from current packet */
 
     size_t num_copied = min_size_t(available_data, max_size);
-    /*
-    if(available_data < num_copied){
-        hprintf("WARNING: num_copied: %d / num_copied: %d\n", available_data, num_copied);
-    }
-    */
-    memcpy(data, &data_buffer[next_data], num_copied);
-    available_data-=num_copied;
-    next_data+=num_copied;
+    memcpy(data, data_buffer+offset, num_copied);
 
-#else /* Not LEGACY_MODE */
-
-    if (afl_has_next() == 0) {
-
-        /* Parse new packets from vm buffer */
-
-        if (!vm->data_len || *vm->data_len == 0){
-            DEBUG("%s: out of data\n", __func__);
-            return -1;
-        }
-
-        afl_deserialize(vm->data, *vm->data_len);
-        vm->data_len = NULL;
-        
-#ifdef EARLY_EXIT_NODES
-        if (++count >= EARLY_EXIT_NODES){
-            //hprintf("EARLY EXIT\n");
-            return -1;
-        }
-#endif
-
-        if(vm->user_data->closed){
-            DEBUG("%s: closed\n", __func__);
-            return -1; /* -1 -> EOF */
-        }
-    }
-
-    /* Serialize next packet into data buffer */
-
-    size_t num_copied = afl_get_next(data, max_size);
-
-#endif /* End not LEGACY_MODE */
-
-    DEBUG("CALL_VM %d -> %d\n", max_size, num_copied);
+    DEBUG("%s: requested %d -> wrote %d bytes\n", __func__, max_size, num_copied);
 
 #ifdef COPY_PAYLOAD_MODE  
     if(payload_mode && !disable_dump_mode){
@@ -330,7 +243,17 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
     }
 #endif
 
+#ifdef UDP_MODE
+    if (return_pkt_size) num_copied = available_data;   /* MSG_TRUNC behaves differently with TCP, but is not implemented */
+    available_data = 0;
+    offset = 0;
+#else
+    available_data -= num_copied;
+    offset += num_copied;
+#endif
+
     return num_copied;
+
 }
 
 #ifndef NET_FUZZ
@@ -376,8 +299,6 @@ static void setup_interpreter(void* payload_buffer) {
 
     // This should just be "INIT"
     DEBUG("input length %zu, %hhx ...\n", *vm->data_len, vm->data[0]);
-
-    // vm->user_data = &vm_state;
 }
 #endif
 
@@ -955,10 +876,6 @@ void nyx_init_start(void){
 #ifndef LEGACY_MODE
     vm = new_interpreter();
     hprintf("interpreter: %p\n", vm);
-    vm->user_data = &vm_state;
-    vm->user_data->len = 0;
-    vm->user_data->data = 0;
-    vm->user_data->closed = false;
 #endif
 
     uint8_t mlock_enabled = 1;
