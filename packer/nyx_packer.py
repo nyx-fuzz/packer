@@ -308,23 +308,23 @@ def compile(config):
 
     download_script += dependencies
 
-    if not LEGACY_MODE:
-        protobuf_lib_file = "/usr/local/lib/libprotobuf.so.32"
-        copyfile(protobuf_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(protobuf_lib_file)))
-        cpp_lib_file = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6"
-        copyfile(cpp_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(cpp_lib_file)))
-        m_lib_file = "/lib/x86_64-linux-gnu/libm.so.6"
-        copyfile(m_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(m_lib_file)))
-        gcc_lib_file = "/lib/x86_64-linux-gnu/libgcc_s.so.1"
-        copyfile(gcc_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(gcc_lib_file)))
-        z_lib_file = "/lib/x86_64-linux-gnu/libz.so.1"
-        copyfile(z_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(z_lib_file)))
+    # if not LEGACY_MODE:
+    #     protobuf_lib_file = "/usr/local/lib/libprotobuf.so.32"
+    #     copyfile(protobuf_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(protobuf_lib_file)))
+    #     cpp_lib_file = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6"
+    #     copyfile(cpp_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(cpp_lib_file)))
+    #     m_lib_file = "/lib/x86_64-linux-gnu/libm.so.6"
+    #     copyfile(m_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(m_lib_file)))
+    #     gcc_lib_file = "/lib/x86_64-linux-gnu/libgcc_s.so.1"
+    #     copyfile(gcc_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(gcc_lib_file)))
+    #     z_lib_file = "/lib/x86_64-linux-gnu/libz.so.1"
+    #     copyfile(z_lib_file, "%s/%s"%(config.argument_values["output_dir"], os.path.basename(z_lib_file)))
 
-        download_script += "./hget %s %s\n"%(os.path.basename(protobuf_lib_file), os.path.basename(protobuf_lib_file))
-        download_script += "./hget %s %s\n"%(os.path.basename(cpp_lib_file), os.path.basename(cpp_lib_file))
-        download_script += "./hget %s %s\n"%(os.path.basename(m_lib_file), os.path.basename(m_lib_file))
-        download_script += "./hget %s %s\n"%(os.path.basename(gcc_lib_file), os.path.basename(gcc_lib_file))
-        download_script += "./hget %s %s\n"%(os.path.basename(z_lib_file), os.path.basename(z_lib_file))
+    #     download_script += "./hget %s %s\n"%(os.path.basename(protobuf_lib_file), os.path.basename(protobuf_lib_file))
+    #     download_script += "./hget %s %s\n"%(os.path.basename(cpp_lib_file), os.path.basename(cpp_lib_file))
+    #     download_script += "./hget %s %s\n"%(os.path.basename(m_lib_file), os.path.basename(m_lib_file))
+    #     download_script += "./hget %s %s\n"%(os.path.basename(gcc_lib_file), os.path.basename(gcc_lib_file))
+    #     download_script += "./hget %s %s\n"%(os.path.basename(z_lib_file), os.path.basename(z_lib_file))
 
     download_script += "echo \"Let's get our target executable...\" | ./hcat\n"
     copyfile(config.argument_values["binary_file"], "%s/%s"%(config.argument_values["output_dir"], os.path.basename(config.argument_values["binary_file"])))

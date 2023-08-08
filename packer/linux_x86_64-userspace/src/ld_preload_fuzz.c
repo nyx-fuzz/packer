@@ -24,8 +24,6 @@
 #include "misc/crash_handler.h"
 #include "misc/harness_state.h"
 
-#include "afl_input.h"
-
 //#define HYPERCALL_KAFL_RELEASE_DEBUG
 
 #define likely(x)       __builtin_expect((x),1)
@@ -56,8 +54,13 @@ bool payload_mode = false;
 #include "netfuzz/syscalls.h"
 //#endif
 
-
+#ifndef LEGACY_MODE
 #include "interpreter.h"
+#else
+extern void _assert(const char *func, const char *file, int line, const char *failedexpr);
+#define INTERPRETER_ASSERT(x) do { if (x){}else{ _assert(__func__, __FILE__, __LINE__, #x);} } while (0)
+#define ASSERT(x) INTERPRETER_ASSERT(x)
+#endif
 
 #include "ijon_extension.h"
 
@@ -205,35 +208,24 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
 
     if (available_data <= 0) {
 
-        if (!afl_has_next()) {
+        /* Parse new data from vm buffer */
 
-            /* Parse new set of packets from vm buffer */
-
-            if (!vm->data_len || *vm->data_len == 0){
-                DEBUG("%s: out of data\n", __func__);
-                return -1;
-            }
-
-            afl_deserialize(vm->data, *vm->data_len);
-            vm->data_len = NULL;    /* This assumes vm->data can only be written to once per execution */
-        
+        if (!vm->data_len || *vm->data_len == 0){
+            DEBUG("%s: out of data\n", __func__);
+            return -1;
         }
 
-        /* Serialize next packet into data buffer */
-
+        available_data = *vm->data_len;
         offset = 0;
-        data_buffer = afl_get_next(&available_data);
-        if (available_data < 0) {
-                DEBUG("%s: packet does not fit in data_buffer\n", __func__);
-                return -1;
-        }
 
+        vm->data_len = NULL;    /* This assumes vm->data can only be written to once per execution */
+        
     }
 
-    /* Copy requested data from current packet */
+    /* Copy requested data from vm buffer */
 
     size_t num_copied = min_size_t(available_data, max_size);
-    memcpy(data, data_buffer+offset, num_copied);
+    memcpy(data, vm->data+offset, num_copied);
 
     DEBUG("%s: requested %d -> wrote %d bytes\n", __func__, max_size, num_copied);
 
