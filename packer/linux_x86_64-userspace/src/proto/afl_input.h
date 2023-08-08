@@ -1,6 +1,10 @@
 #include <sys/types.h>
 #include <stdint.h>
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

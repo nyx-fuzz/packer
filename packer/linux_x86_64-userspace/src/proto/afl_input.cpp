@@ -41,8 +41,8 @@ extern "C" size_t afl_get_packet(int index, void* buf, size_t size) {
 }
 
 extern "C" void afl_set_packet(int index, void* buf, size_t size) {
-    afl_input::Packet packet = g_input.mutable_packets()->at(index);
-    packet.ParseFromArray(buf, size);
+    afl_input::Packet* packet = g_input.mutable_packets()->Mutable(index);
+    packet->set_buffer(buf, size);
 }
 
 extern "C" size_t afl_serialize(void* buf, size_t size) {

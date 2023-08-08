@@ -20,8 +20,8 @@ else
     MODE="${UDP_MODE} ${CLIENT_MODE} ${DEBUG_MODE} ${STDOUT_STDERR_DEBUG}"
     echo "MODES => $MODE"
 
-    clang++ -shared -g -O0 -m64 -Werror $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz.so -ldl -Isrc -Iproto src/proto/input.pb.cc -lprotobuf
-    clang++ -shared -g -O0 -m64 -Werror -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I$NYX_SPEC_FOLDER -o bin64/ld_preload_fuzz_no_pt.so -ldl -Isrc -Iproto src/proto/input.pb.cc -lprotobuf
+    clang -shared -g -O0 -m64 -Werror $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I../../../../custom_mutators/nyx-net/echoserver_example/specs/echoserver/include -o bin64/ld_preload_fuzz.so -ldl -Isrc
+    clang -shared -g -O0 -m64 -Werror -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -DNET_FUZZ -I../../../../custom_mutators/nyx-net/echoserver_example/specs/echoserver/include -o bin64/ld_preload_fuzz_no_pt.so -ldl -Isrc
 
     # New compile commands for nyxnet mode
    # protoc -Isrc/proto input.proto --cpp_out=src/proto
