@@ -70,6 +70,8 @@ static void nyx_assert(bool exp, const char* func) {
 #define DEBUG(f_, ...) 
 #endif
 
+#define howmany(x,y)	(((x)+((y)-1))/(y))
+
 //extern interpreter_t* vm;
 
 bool is_target_port(uint16_t port){
@@ -620,7 +622,8 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 	fd_set old_readfds;
 
 	if(readfds){
-		memcpy(&old_readfds, readfds, sizeof(fd_set));
+		size_t sz = howmany(nfds, NFDBITS) * sizeof(fd_mask);
+		memcpy(&old_readfds, readfds, sz);
 	}
 
 	int ret = real_select(nfds, readfds, writefds, exceptfds, &timeout_new);
