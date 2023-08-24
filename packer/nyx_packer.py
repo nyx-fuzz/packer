@@ -171,13 +171,16 @@ def compile(config):
     PRE_PROCESS_ARGS = config.argument_values["add_pre_process_args"]
     SET_CLIENT_UDP_PORT = config.argument_values["set_client_udp_port"]
 
+    # --nyx_net with afl activates nyx_net mode without specs
+    # --nyx_net with spec uses the old nyx_net spec mode
     if config.argument_values["mode"] == "afl":
-        LEGACY_MODE = True
+        if NET_FUZZ_MODE:
+            LEGACY_MODE = False
+        else:
+            LEGACY_MODE = True
     elif config.argument_values["mode"] == "spec":
-        print(WARNING + WARNING_PREFIX + "The integrated nyxnet&afl++ mode is now \"nyxnet\"")
         LEGACY_MODE = False
-    elif config.argument_values["mode"] == "nyxnet":
-        LEGACY_MODE = False
+        SPEC_MODE = True # Use this to differentiate between spec and non-spec mode in preload
     else:
         raise Exception("Unkown mode: %s"%(config.argument_values["mode"]))
     
@@ -222,6 +225,8 @@ def compile(config):
         os.environ["NYX_SPEC_FOLDER"] = SPEC_FOLDER + "/build"
     if LEGACY_MODE:
         os.environ["LEGACY_MODE"] = "ON"
+    if SPEC_MODE:
+        os.environ["SPEC_MODE"] = "-DSPEC_MODE"
     if NET_FUZZ_MODE:
         os.environ["NET_FUZZ"] = "ON"
     if UDP_MODE:

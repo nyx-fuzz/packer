@@ -57,8 +57,8 @@ bool payload_mode = false;
 #ifndef LEGACY_MODE
 #include "interpreter.h"
 #else
-extern void _assert(const char *func, const char *file, int line, const char *failedexpr);
-#define INTERPRETER_ASSERT(x) do { if (x){}else{ _assert(__func__, __FILE__, __LINE__, #x);} } while (0)
+extern void __assert(const char *func, const char *file, int line, const char *failedexpr);
+#define INTERPRETER_ASSERT(x) do { if (x){}else{ __assert(__func__, __FILE__, __LINE__, #x);} } while (0)
 #define ASSERT(x) INTERPRETER_ASSERT(x)
 #endif
 
@@ -190,7 +190,7 @@ void hprintf_payload(char* data, size_t len){
 /* TODO: check via env var */
 //#define COPY_PAYLOAD_MODE
 
-
+#ifndef SPEC_MODE
 ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_dump_mode) {
 
 #ifdef EARLY_EXIT_NODES
@@ -202,7 +202,6 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
     }
 #endif
 
-    static const char* data_buffer = NULL;
     static size_t available_data = 0;
     static size_t offset = 0;
 
@@ -247,6 +246,110 @@ ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_
     return num_copied;
 
 }
+#else
+ssize_t call_vm(void *data, size_t max_size, bool return_pkt_size, bool disable_dump_mode){
+
+#ifdef EARLY_EXIT_NODES
+    static int count = 0;
+#endif
+
+
+#ifdef UDP_MODE
+    vm->user_data->len = max_size; 
+    vm->user_data->data = data;
+    if(interpreter_run(vm)==0){
+        return -1;
+    }
+
+#ifdef EARLY_EXIT_NODES
+    count++;
+
+    if (count >= EARLY_EXIT_NODES){
+        return -1;
+    }
+#endif
+
+    if(vm->user_data->closed){
+        return -1; /* -1 -> EOF */
+    }
+
+    //hprintf("max: %d / pkt_len: %d / len: %d\n", max_size, vm->user_data->pkt_len, vm->user_data->len);
+    if(return_pkt_size && max_size < vm->user_data->len){
+//#ifdef COPY_PAYLOAD_MODE 
+        if(payload_mode && !disable_dump_mode){
+            hprintf_payload(vm->user_data->data, vm->user_data->len);
+        }
+        //hprintf("%d vs %d\n", vm->user_data->pkt_len, max_size);
+//#endif
+        return vm->user_data->len;
+    }
+    else{
+//#ifdef COPY_PAYLOAD_MODE  
+        if(payload_mode && !disable_dump_mode){
+            hprintf_payload(vm->user_data->data, vm->user_data->len);
+        }
+//#endif
+        return vm->user_data->len;
+    }
+#else
+
+    #define PACKET_BUFFER_SIZE (1<<14)
+    static char data_buffer[PACKET_BUFFER_SIZE];
+    static size_t available_data= 0;
+    static size_t next_data = 0;
+
+    if(available_data == 0){
+        vm->user_data->len = PACKET_BUFFER_SIZE;
+        vm->user_data->data = &data_buffer[0];
+            
+        //hprintf("%s: 1: %p\n", __func__, vm);
+        //hprintf("%s: 2: %p\n", __func__, vm->user_data);
+        //hprintf("%s: 3: %p\n", __func__, vm->user_data->len);
+
+        if(interpreter_run(vm)==0){
+            DEBUG("%s: out of data\n", __func__);
+            return -1;
+        }
+
+#ifdef EARLY_EXIT_NODES
+        count++;
+
+        if (count >= EARLY_EXIT_NODES){
+            //hprintf("EARLY EXIT\n");
+            return -1;
+        }
+#endif
+
+        if(vm->user_data->closed){
+            DEBUG("%s: closed\n", __func__);
+
+            return -1; /* -1 -> EOF */
+        }
+        available_data = vm->user_data->len;
+        next_data = 0;
+    }
+
+    size_t num_copied = min_size_t(available_data, max_size);
+    /*
+    if(available_data < num_copied){
+        hprintf("WARNING: num_copied: %d / num_copied: %d\n", available_data, num_copied);
+    }
+    */
+    memcpy(data, &data_buffer[next_data], num_copied);
+    available_data-=num_copied;
+    next_data+=num_copied;
+
+    DEBUG("CALL_VM %d -> %d\n", max_size, num_copied);
+//#ifdef COPY_PAYLOAD_MODE  
+    if(payload_mode && !disable_dump_mode){
+        hprintf_payload(data, num_copied);
+    }
+//#endif
+    //return 0;
+    return num_copied;
+#endif
+}
+#endif
 
 #ifndef NET_FUZZ
 ssize_t read(int fd, void *data, size_t size) {

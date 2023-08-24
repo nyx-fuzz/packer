@@ -11,9 +11,10 @@ typedef struct {size_t count; d_char* vals; } d_vec_path_string;
 typedef uint8_t d_foo_bla;
 typedef uint32_t d_foo_fuu;
 
-#pragma pack(1)
+#pragma pack(push, 1)
 typedef struct {
         d_foo_bla bla;
         d_flags flags;
         d_foo_fuu fuu;
 } d_foo;
+#pragma pack(pop)
