@@ -54,12 +54,31 @@ bool payload_mode = false;
 #include "netfuzz/syscalls.h"
 //#endif
 
-#ifndef LEGACY_MODE
+#ifdef SPEC_MODE
+
+/* Spec mode uses the interpreter */
 #include "interpreter.h"
+
 #else
+
 extern void __assert(const char *func, const char *file, int line, const char *failedexpr);
 #define INTERPRETER_ASSERT(x) do { if (x){}else{ __assert(__func__, __FILE__, __LINE__, #x);} } while (0)
 #define ASSERT(x) INTERPRETER_ASSERT(x)
+
+/* Nyx-net mode uses the vm data structure */
+#ifndef LEGACY_MODE
+typedef struct {
+	uint16_t* ops;
+	size_t* ops_len;
+	size_t ops_i;
+
+	uint8_t* data;
+	uint32_t* data_len;
+	size_t data_i;
+	uint32_t* instruction_counter;
+} interpreter_t;
+#endif
+
 #endif
 
 #include "ijon_extension.h"
@@ -76,11 +95,6 @@ bool fuzzer_ready = false;
 
 
 interpreter_t* vm;
-#ifdef NET_FUZZ
-socket_state_t vm_state;
-#else
-fd_state_t vm_state;
-#endif
 
 ssize_t (*fptr_read)(int fd, void *data, size_t size);
 ssize_t (*fptr_getline)(char **lineptr, size_t *n, FILE *stream);
@@ -968,8 +982,13 @@ void nyx_init_start(void){
     free(ar);
     free(ranges);
 
-#ifndef LEGACY_MODE
+#ifdef SPEC_MODE
     vm = new_interpreter();
+#else
+#ifndef LEGACY_MODE
+    vm = malloc(sizeof(interpreter_t));
+    memset(vm, 0, sizeof(interpreter_t));
+#endif
     hprintf("interpreter: %p\n", vm);
 #endif
 

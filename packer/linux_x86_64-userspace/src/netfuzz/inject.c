@@ -371,7 +371,7 @@ int printf(const char* format, ...)
 	va_list arg;
 
 	va_start(arg, format);
-	hprintf(format, va_arg(arg, int));
+	DEBUG(format, va_arg(arg, int));
 	va_end(arg);
 
 	return 0;
@@ -379,7 +379,7 @@ int printf(const char* format, ...)
 
 int puts(const char* s)
 {
-	hprintf(s);
+	DEBUG(s);
 	return 0;
 }
 

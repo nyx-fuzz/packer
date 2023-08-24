@@ -170,6 +170,7 @@ def compile(config):
     PRE_PROCESS = config.argument_values["add_pre_process"]
     PRE_PROCESS_ARGS = config.argument_values["add_pre_process_args"]
     SET_CLIENT_UDP_PORT = config.argument_values["set_client_udp_port"]
+    SPEC_MODE = False
 
     # --nyx_net with afl activates nyx_net mode without specs
     # --nyx_net with spec uses the old nyx_net spec mode
