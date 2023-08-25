@@ -264,10 +264,9 @@ class PackerConfiguration:
         self.config_values = ConfigReader(os.path.dirname(os.path.realpath(__file__))+"/../nyx.ini", self.__config_section, self.__config_default).get_values()
 
     def __load_arguments(self):
-        modes = ["afl", "spec", "nyxnet"]
+        modes = ["afl", "spec"]
         modes_help = 'afl\t\t - pack target for an AFL-like fuzzer (such as AFL++, kAFL, Nautilus)\n' \
-                     'spec\t\t - pack target for a spec fuzzer (such as Nyx\'s spec-fuzzer)\n' \
-                     'nyxnet\t\t - pack target for an AFL-like fuzzer while using nyx-net'
+                     'spec\t\t - pack target for a spec fuzzer (such as Nyx\'s spec-fuzzer)\n'
 
         coverage_modes = ["instrumentation", "processor_trace"]
         coverage_modes_help = 'instrumentation\t - use compile-time instrumentation (target has to be compiled with an proper compiler)\n' \
