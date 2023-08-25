@@ -3,3 +3,4 @@ linux_initramfs/init_debug_shell.cpio.gz
 linux_initramfs/init
 packer/linux_x86_64-userspace/src/proto/input.pb.cc
 packer/linux_x86_64-userspace/src/proto/input.pb.h
+packer/pack_test.sh
