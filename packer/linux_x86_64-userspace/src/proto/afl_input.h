@@ -18,6 +18,9 @@ extern "C" {
 /// @param size Size of buf
 void afl_deserialize(uint8_t* buf, uint32_t size);
 
+/// @brief Dump the contents of the packets 
+void afl_dump_packets(void);
+
 /********************************
  * Functions for custom mutator *
  ********************************/
