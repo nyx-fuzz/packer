@@ -21,7 +21,7 @@ else
     echo "MODES => $MODE"
 
     clang -shared -g -O0 -m64 -Werror -DNET_FUZZ $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -o bin64/ld_preload_fuzz.so -ldl -Isrc
-    clang -shared -g -O0 -m64 -Werror -DNET_FUZZ -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -o bin65/ld_preload_fuzz_no_pt.so -ldl -Isrc
+    clang -shared -g -O0 -m64 -Werror -DNET_FUZZ -DNO_PT_NYX $EXTRA $MODE -fPIC src/ld_preload_fuzz.c src/misc/crash_handler.c src/misc/harness_state.c src/netfuzz/inject.c src/netfuzz/syscalls.c src/netfuzz/socket_cache.c -I../../ -o bin64/ld_preload_fuzz_no_pt.so -ldl -Isrc
 
   else
 
