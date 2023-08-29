@@ -429,7 +429,7 @@ def compile(config):
     f.write(download_script.replace("./hget hcat", "./hget hcat_no_pt").replace("./hget habort", "./hget habort_no_pt").replace("./hget ld_preload_fuzz.so", "./hget ld_preload_fuzz_no_pt.so"))
     f.close()
 
-    print(OKGREEN + INFO_PREFIX + "NYX share-dir is ready -> %s"%(config.argument_values["output_dir"]))
+    print(OKGREEN + INFO_PREFIX + "NYX share-dir is ready -> %s"%(config.argument_values["output_dir"]) + ENDC)
 
     return
 
