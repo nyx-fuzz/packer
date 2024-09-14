@@ -295,6 +295,9 @@ class PackerConfiguration:
         parser.add_argument('--setup_folder', help='pack addional setup folder', default="", type=parse_is_setup_dir)
         parser.add_argument('--purge', help='delete output_dir', action='store_true', default=False)
 
+        parser.add_argument('--hash_only_target', help='generate target hash only using the target executable as input', action='store_true', default=False)
+
+
         tracing = parser.add_argument_group("Intel-PT Option")
 
         tracing.add_argument('--no_pt_auto_conf_a', help='disable Intel PT range auto configuration for range A (usually the target executable without shared libraries)', action='store_true', default=False)
@@ -319,6 +322,8 @@ class PackerConfiguration:
 
         debug_group.add_argument('--debug_stdin_stderr', help='redirect stdin / stderr data via hcat to hypervisor', action='store_true', default=False)
         debug_group.add_argument('--nyx_net_debug_mode', help='add hprintfs to debug nyx_net targets', action='store_true', default=False)
+
+
 
 
         self.argument_values = vars(parser.parse_args())

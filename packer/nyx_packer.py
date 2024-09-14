@@ -27,6 +27,7 @@ import sys
 import tarfile
 import uuid
 from shutil import copyfile, rmtree, copytree
+import hashlib
 
 import common.color
 from common.color import WARNING_PREFIX, ERROR_PREFIX, FAIL, WARNING, ENDC, OKGREEN, BOLD, OKBLUE, INFO_PREFIX, OKGREEN
@@ -34,6 +35,20 @@ from common.self_check import self_check
 from common.util import ask_for_permission, execute
 
 __author__ = 'sergej'
+
+def generate_hash(executables, nyx_share_dir):
+    executables = list(set(executables))
+    executables.sort()
+    #print(nyx_share_dir)
+    #print(executables)
+
+    sha1 = hashlib.sha1()
+    for executable in executables:
+        with open("%s/%s"%(nyx_share_dir, executable), 'rb') as file:
+            while chunk := file.read(8192):
+                sha1.update(chunk)
+    return sha1.hexdigest()
+
 
 def copy_dependencies(config, target_executable, target_folder, ld_type, agent_folder, folder=""):
     result_string = ""
@@ -58,7 +73,8 @@ def copy_dependencies(config, target_executable, target_folder, ld_type, agent_f
     for i in range(len(dependencies)):
         if dependencies[i] == "libnyx.so":
             dependencies[i] = agent_folder + "libnyx.so"
-            
+
+    executables = []            
 
     i = 1
     for d in dependencies[1:]:
@@ -70,11 +86,12 @@ def copy_dependencies(config, target_executable, target_folder, ld_type, agent_f
             ld_linux = os.path.basename(d)
         download_script += "./hget %s%s %s%s\n"%(folder, os.path.basename(d), folder, os.path.basename(d))
         copyfile(d, "%s/%s"%(target_folder, os.path.basename(d)))
+        executables.append(os.path.basename(d))
 
     #except Exception as e:
     #    print(FAIL + "Error while running lddtree: " + str(e) + ENDC)
 
-    return download_script, asan_lib, ld_linux
+    return download_script, asan_lib, ld_linux, executables
 
 def check_elf(file):
     proc = subprocess.Popen(("file " + file).split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -170,6 +187,7 @@ def compile(config):
     PRE_PROCESS = config.argument_values["add_pre_process"]
     PRE_PROCESS_ARGS = config.argument_values["add_pre_process_args"]
     SET_CLIENT_UDP_PORT = config.argument_values["set_client_udp_port"]
+    HASH_ONLY_TARGET = config.argument_values["hash_only_target"]
 
     if config.argument_values["mode"] == "afl":
         LEGACY_MODE = True
@@ -287,17 +305,22 @@ def compile(config):
 
     download_script += "echo \"Let's get our dependencies...\" | ./hcat\n"
 
+    executables = []
+
     if PRE_PROCESS:
         os.mkdir(config.argument_values["output_dir"] + "/pre_process")
-        pre_process_dependencies, pre_process_asan_lib, ld_linux = copy_dependencies(config, PRE_PROCESS,  config.argument_values["output_dir"]+"/pre_process", ld_type, agent_folder, folder="pre_process/")
+        pre_process_dependencies, pre_process_asan_lib, ld_linux, _executables = copy_dependencies(config, PRE_PROCESS,  config.argument_values["output_dir"]+"/pre_process", ld_type, agent_folder, folder="pre_process/")
+        executables += _executables
 
         download_script += "mkdir pre_process/\n"
         download_script += pre_process_dependencies
         
         copyfile(PRE_PROCESS, "%s/%s"%(config.argument_values["output_dir"] + "/pre_process", os.path.basename(PRE_PROCESS)))
         download_script += "./hget pre_process/%s pre_process/pre_process\n"%(os.path.basename(PRE_PROCESS))
+        executables.append("pre_process/%s"%(os.path.basename(PRE_PROCESS)))
 
-    dependencies, asan_lib, ld_linux = copy_dependencies(config, config.argument_values["binary_file"],  config.argument_values["output_dir"], ld_type, agent_folder)
+    dependencies, asan_lib, ld_linux, _executables = copy_dependencies(config, config.argument_values["binary_file"],  config.argument_values["output_dir"], ld_type, agent_folder)
+    executables += _executables
 
     asan_executable = False
     if not asan_lib:
@@ -308,6 +331,11 @@ def compile(config):
     download_script += "echo \"Let's get our target executable...\" | ./hcat\n"
     copyfile(config.argument_values["binary_file"], "%s/%s"%(config.argument_values["output_dir"], os.path.basename(config.argument_values["binary_file"])))
     download_script += "./hget %s target_executable\n"%(os.path.basename(config.argument_values["binary_file"]))
+
+    if HASH_ONLY_TARGET:
+        executables = [os.path.basename(config.argument_values["binary_file"])]
+    else:
+        executables.append(os.path.basename(config.argument_values["binary_file"]))
     
     if ld_linux:
         download_script += "chmod +x %s\n"%(ld_linux)
@@ -423,6 +451,13 @@ def compile(config):
     f.close()
 
     print(OKGREEN + INFO_PREFIX + "NYX share-dir is ready -> %s"%(config.argument_values["output_dir"]))
+
+    hash = generate_hash(executables, config.argument_values["output_dir"])
+
+    print(OKGREEN + INFO_PREFIX + "TARGET-HASH: " + str(hash))
+    f = open("%s/TARGET_HASH"%(config.argument_values["output_dir"]), "w")
+    f.write(str(hash))
+    f.close()
 
     return
 
