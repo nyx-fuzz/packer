@@ -436,17 +436,36 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *
 ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
 	//int client_socket = server_socket_to_client_socket(sockfd);
 	//if(client_socket != -1){
+	DEBUG("%s --> %d %p %x\n", __func__, sockfd, msg, flags);
 
-	DEBUG("%s --> %d\n", __func__, sockfd);
-
-	if(server_socket_exists(sockfd)){
-	
-		//hprintf("%s: not implemented\n", __func__);
-		exit(0);
-		//DEBUG("%s %d (%d)\n", __func__, sockfd, client_socket);
-		//send_trash(client_socket);
+	if(!server_socket_exists(sockfd)){
+			DEBUG("pass to real\n");
+			return real_recvmsg(sockfd, msg, flags);
 	}
-	return real_recvmsg(sockfd, msg, flags);
+
+	init_nyx();
+
+	int ret = handle_next_packet_iovec(sockfd, msg->msg_iov, msg->msg_iovlen, false);
+	if (-1 == ret) {
+			DEBUG("%s(%d): handle_... ret -1\n", __func__, sockfd);
+			return -1;
+	}
+	if (NULL != msg->msg_name) {
+			if (sizeof(struct sockaddr_in) > msg->msg_namelen) {
+					DEBUG("%s(%d): small msg_namelen\n", __func__, sockfd);
+					return -1;
+			}   
+			struct sockaddr_in* tmp = (struct sockaddr_in*) msg->msg_name;
+			tmp->sin_family = AF_INET;
+#ifdef CLIENT_UDP_PORT
+			tmp->sin_port = htons(CLIENT_UDP_PORT);
+#else
+			tmp->sin_port = htons(50000);
+#endif
+			tmp->sin_addr.s_addr = htonl(0x7F000001); /* 127.0.0.1 */
+			msg->msg_namelen = sizeof(struct sockaddr_in);
+	}
+	return ret;
 }
 
 int getc(FILE *stream){
