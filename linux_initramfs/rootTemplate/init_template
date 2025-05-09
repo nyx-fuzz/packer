@@ -1,4 +1,11 @@
 #!/bin/sh
+
+# enable port I/O from userspace for NYX hypercalls, then re-exec this script
+if [ "$PORTIO_ENABLED" != "1" ]; then
+  export PORTIO_ENABLED=1
+  exec /portio-enable /init
+fi
+
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t debugfs none /sys/kernel/debug
