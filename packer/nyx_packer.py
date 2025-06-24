@@ -401,7 +401,7 @@ def compile(config):
     if DELAYED_INIT:
         download_script += "DELAYED_NYX_FUZZER_INIT=ON "
     if COVERAGE_MODE:
-        download_script += "NYX_AFL_PLUS_PLUS_MODE=ON AFL_MAP_SIZE=8388608 "
+        download_script += "NYX_AFL_PLUS_PLUS_MODE=ON "
     if FAST_EXIT_MODE:
         download_script += "NYX_FAST_EXIT_MODE=TRUE "
     if NET_FUZZ_MODE:

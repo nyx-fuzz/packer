@@ -22,6 +22,8 @@
 #include "misc/crash_handler.h"
 #include "misc/harness_state.h"
 
+#define MAP_INITIAL_SIZE 2 << 20
+
 //#define HYPERCALL_KAFL_RELEASE_DEBUG
 
 #define likely(x)       __builtin_expect((x),1)
@@ -529,6 +531,16 @@ void _exit(int status){
 }
 #endif
 
+void alloc_trace_buffer(void) {
+    if (!trace_buffer){
+        trace_buffer = mmap((void*)NULL, MAP_INITIAL_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        
+        if(trace_buffer == (void *)-1){
+            habort("Error: Failed to allocate trace_buffer!\n");
+        }
+    }
+}
+
 void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool ijon_tracing){
 
     static bool done = false;
@@ -571,7 +583,7 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
             agent_config.coverage_bitmap_size = map_size;
         }
 
-        trace_buffer = mmap((void*)NULL, agent_config.coverage_bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        alloc_trace_buffer();
         memset(trace_buffer, 0xff, agent_config.coverage_bitmap_size);
 
         ijon_trace_buffer = mmap((void*)NULL, host_config.ijon_bitmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -1082,7 +1094,7 @@ char *getenv(const char *name){
 
 void *shmat(int shmid, const void *shmaddr, int shmflg){
     if(get_harness_state()->afl_mode && shmid == 5134680){
-        capabilites_configuration(false, true, false);
+        alloc_trace_buffer();
         if(!get_harness_state()->net_fuzz_mode){
 #ifndef LEGACY_MODE
             //nyx_init_start();
