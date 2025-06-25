@@ -578,7 +578,7 @@ void capabilites_configuration(bool timeout_detection, bool agent_tracing, bool 
         /* AFL++ LTO support */ 
         agent_config.coverage_bitmap_size = host_config.bitmap_size;
         if (get_harness_state()->afl_mode && __afl_final_loc_ptr){
-            unsigned int map_size = __afl_final_loc == 0 ? 65536 : __afl_final_loc;
+            unsigned int map_size = __afl_final_loc == 0 ? 65536 : (__afl_final_loc + 1);
             hprintf("[capablities] overwriting bitmap_size: 0x%"PRIx64"\n", map_size);
             agent_config.coverage_bitmap_size = map_size;
         }
