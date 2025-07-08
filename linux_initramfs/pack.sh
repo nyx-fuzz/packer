@@ -32,8 +32,8 @@ fi
 cd ../packer/linux_x86_64-userspace/
 sh compile_loader.sh
 cd -
-cp ../packer/linux_x86_64-userspace/bin64/loader rootTemplate/loader
-chmod +x rootTemplate/loader
+cp ../packer/linux_x86_64-userspace/bin64/{loader,portio-enable} rootTemplate/
+chmod +x rootTemplate/{loader,portio-enable}
 mkdir rootTemplate/lib/
 mkdir rootTemplate/lib64/
 mkdir rootTemplate/lib/i386-linux-gnu/
@@ -71,4 +71,4 @@ rm -r ./init/
 
 rm -r rootTemplate/lib/
 rm -r rootTemplate/lib64/
-rm rootTemplate/loader
+rm rootTemplate/{loader,portio-enable}

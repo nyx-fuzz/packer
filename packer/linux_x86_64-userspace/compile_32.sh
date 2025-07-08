@@ -50,3 +50,4 @@ gcc -O0 -m32 -Werror -DNO_PT_NYX src/htools/hpush.c -I../../ -o bin32/hpush_no_p
 
 # loader support both modes (PT & NO-PT)
 #gcc -O0 -m32 -static -Werror src/loader.c -I../../agents -o bin32/loader
+gcc -O0 -m32 -static -Werror src/portio-enable.c -I../../ -o bin32/portio-enable
