@@ -440,11 +440,61 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
 	DEBUG("%s --> %d\n", __func__, sockfd);
 
 	if(server_socket_exists(sockfd)){
-	
-		//hprintf("%s: not implemented\n", __func__);
-		exit(0);
-		//DEBUG("%s %d (%d)\n", __func__, sockfd, client_socket);
-		//send_trash(client_socket);
+#ifndef NET_STANDALONE
+
+		init_nyx();
+
+		// fill sockaddr
+		struct sockaddr_in* tmp = (struct sockaddr_in *) msg->msg_name;
+                tmp->sin_family = AF_INET;
+#ifdef CLIENT_UDP_PORT
+		tmp->sin_port = htons(CLIENT_UDP_PORT);
+#else
+		tmp->sin_port = htons(50000);
+#endif
+                tmp->sin_addr.s_addr = htonl(0x7F000001); /* 127.0.0.1 */
+                msg->msg_namelen = sizeof(struct sockaddr_in);
+
+        msg->msg_flags = 0;
+
+		// check for MSG_PEEK
+		if (flags & MSG_PEEK) {
+			size_t total_length = 0;
+
+			for (int i = 0; i < msg->msg_iovlen; ++i) {
+				total_length += msg->msg_iov[i].iov_len;
+			}
+
+			// say that total_len bytes are ready in the socket
+			return total_length;
+		}
+
+		size_t read_in = 0;
+		for (int i = 0; i < msg->msg_iovlen; ++i) {
+			read_in += handle_next_packet(sockfd, msg->msg_iov[i].iov_base, msg->msg_iov[i].iov_len, flags & MSG_TRUNC);
+		}
+
+		// init in_pktinfo header
+		struct cmsghdr *cmsg;
+		int myfds[1]; /* Contains the file descriptors to pass. */
+		char buf[CMSG_SPACE(sizeof myfds)];  /* ancillary data buffer */
+		struct in_pktinfo *pkt_info;
+		msg->msg_control = buf;
+		msg->msg_controllen = sizeof buf;
+		cmsg = CMSG_FIRSTHDR(msg);
+		cmsg->cmsg_level = IPPROTO_IP;
+		cmsg->cmsg_type = IP_PKTINFO;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(int) * 1);
+		/* Initialize the payload: */
+		pkt_info = (struct in_pktinfo *)CMSG_DATA(cmsg);
+		pkt_info->ipi_addr.s_addr = htonl(0x7F000001); /* 127.0.0.1 */
+		pkt_info->ipi_ifindex = 1;
+		/* Sum of the length of all control messages in the buffer: */
+		msg->msg_controllen = cmsg->cmsg_len;
+
+		return read_in;
+
+#endif
 	}
 	return real_recvmsg(sockfd, msg, flags);
 }
