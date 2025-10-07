@@ -268,8 +268,8 @@ ssize_t real_readv(int fd, const struct iovec *iov, int iovcnt){
 }
 
 ssize_t real_writev(int fd, const struct iovec *iov, int iovcnt){
-  assert(real_write_ptr);
-  return real_write_ptr(fd, iov, iovcnt);
+  assert(real_writev_ptr);
+  return real_writev_ptr(fd, iov, iovcnt);
 }
 
 ssize_t real_preadv(int fd, const struct iovec *iov, int iovcnt,
